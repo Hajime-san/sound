@@ -1,4 +1,3 @@
-
 export const Player = {
   _audioElem: new Audio(),
 
@@ -37,110 +36,158 @@ const prepareBuffer = async (path: string) => {
 }
 
 
-const play = async () => {
-  const source = context.createBufferSource(); //4. Sourceノードを作成
-  source.buffer = await prepareBuffer('./korobeiniki.mp3'); //5. 再生するバッファを指定
-  source.connect(context.destination); // SourceノードをDestinationにつなぐ
-  source.start(0);//6. 再生開始
+// const play = async () => {
+//   const source = context.createBufferSource(); //4. Sourceノードを作成
+//   source.buffer = await prepareBuffer('./korobeiniki.mp3'); //5. 再生するバッファを指定
+//   source.connect(context.destination); // SourceノードをDestinationにつなぐ
+//   source.start(0);//6. 再生開始
 
-}
+// }
 
 //window.addEventListener('load', () => play());
 
+const getAverageVolume = (array: Uint8Array) => {
+  let values = 0;
+  let average;
 
+  let length = array.length;
 
-function playAudio() {
-  async function a(a: MediaStream) {
-    const source = context.createBufferSource();
-    source.buffer = await prepareBuffer('./korobeiniki.mp3');
+  // get all the frequency amplitudes
+  for (let i = 0; i < length; i++) {
+    values += array[i];
+  }
 
-    firstflg && (audioCtx = context, firstflg = !1),
-      //audioSourceNode && audioSourceNode.disconnect(),
-      //audioSourceNode = audioCtx.createMediaStreamSource(a),
-      //analyserNode && analyserNode.disconnect(),
-      analyserNode = audioCtx.createAnalyser(),
-      analyserNode.fftSize = 32768,
-      fs = audioCtx.sampleRate / analyserNode.fftSize,
-      dB_range = analyserNode.maxDecibels - analyserNode.minDecibels,
-      dataArray = new Float32Array(analyserNode.frequencyBinCount),
+  average = values / length;
+  return average;
+}
 
-      source.connect(analyserNode);
+const playAudio = () => {
+  let tone,
+      audioSourceNode: MediaStreamAudioSourceNode,
+      analyserNode: AnalyserNode,
+      tracks: MediaStreamTrack[],
+      isClearFirstAuthorizationOfEnviroment = true,
+      isStopAnalyze = false;
 
-    analyserNode.connect(context.destination);
-    source.start(0);
+  const mainFlow = async (stream: MediaStream) => {
 
-    var e = function () {
-      stopflg || requestAnimationFrame(e),
-        analyserNode.getFloatFrequencyData(dataArray);
-      for (var a, t = dB_range, o = 0, r = 0; r < dataArray.length; r++)
-        a = (dataArray[r] - analyserNode.maxDecibels) / dB_range * -1,
-          t > a && (t = a, o = r);
+    // like mp3, source from completed media
+    // const source = context.createBufferSource();
+    // source.buffer = await prepareBuffer('./korobeiniki.mp3');
 
-      for (var n, d, o: number, s = o * fs, r = 0; r < Hz.length; r++) {
-        if (s <= Hz[0]) {
-          o = 0;
-          break
+    if (!isClearFirstAuthorizationOfEnviroment) {
+      return;
+    }
+
+    // on user's integrated media of device
+    audioSourceNode && audioSourceNode.disconnect();
+    audioSourceNode = context.createMediaStreamSource(stream);
+    analyserNode && analyserNode.disconnect();
+    // on user's integrated media of device
+
+    analyserNode = context.createAnalyser();
+    //analyserNode.fftSize = 32768;
+    const currentHz = context.sampleRate / analyserNode.fftSize;
+    const dB_range = analyserNode.maxDecibels - analyserNode.minDecibels;
+    const dataArray = new Float32Array(analyserNode.frequencyBinCount);
+
+    // like mp3, source from completed media
+    // source.connect(analyserNode);
+    // analyserNode.connect(context.destination);
+    // source.start(0);
+
+    // on user's integrated media of device
+    audioSourceNode.connect(analyserNode);
+
+    const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
+
+    const tickAnalyze = () => {
+      analyserNode.getFloatFrequencyData(dataArray);
+
+      // volume
+      analyserNode.getByteFrequencyData(fourierVolumeArray);
+      const average = getAverageVolume(fourierVolumeArray);
+      console.log('VOLUME:' + average); //here's the volume
+
+      const getNormalization = (r: number) => {
+        return (dataArray[r] - analyserNode.maxDecibels) / dB_range * -1;
+      }
+
+      let extendedRange = 0;
+      for (let range = 0,
+              total = dB_range,
+              normalized;
+              range < dataArray.length;
+              range++
+          )
+        normalized = getNormalization(range),
+        total > normalized && (total = normalized, extendedRange = range);
+
+      for (let incrementHz = 0; incrementHz < Hz.length; incrementHz++) {
+        const convertkHzToHz = extendedRange * currentHz;
+        const lastHz = Hz[incrementHz];
+        const overflowedIndex = incrementHz + 1;
+        const overflowedHz = Hz[overflowedIndex];
+
+        if (convertkHzToHz <= Hz[0]) {
+          extendedRange = 0;
+          break;
         }
-        if (s >= Hz[87]) {
-          o = 87;
-          break
+        if (convertkHzToHz >= Hz[Hz.length - 1]) {
+          extendedRange = Hz.length - 1;
+          break;
         }
-        if (n = Hz[r], d = Hz[r + 1], s >= n && d >= s) {
-          o = Math.abs(s - n) > Math.abs(s - d)
-            ? r + 1
-            : r;
-          break
+        if (convertkHzToHz >= lastHz && overflowedHz >= convertkHzToHz) {
+          extendedRange = Math.abs(convertkHzToHz - lastHz) > Math.abs(convertkHzToHz - overflowedHz)
+                        ? overflowedIndex
+                        : incrementHz;
+          break;
         }
       }
-      msg = code[o];
-      tone = code[o];
-      console.log(msg)
+      tone = chord[extendedRange];
+      console.log(tone);
+
+      requestAnimationFrame(tickAnalyze);
     };
-    e()
+
+    tickAnalyze();
   }
-  tracks || (
-    stopflg = !1,
+
+    if (isStopAnalyze) {
+      return;
+    }
+
+    // devide Browser implementation
     navigator.getUserMedia
-      ? (console.log("USE: navigator.getUserMedia()"), navigator.getUserMedia({
-        video: !1,
-        audio: !0
-      }, function (e) {
-        tracks = e.getTracks(),
-          a(e)
-      }, function (a) {
-        console.log(a)
-      }))
+      ? navigator.getUserMedia({
+        video: false,
+        audio: true
+      }, (res) => {
+        tracks = res.getTracks();
+        mainFlow(res);
+      }, (err) => {
+        console.log(err);
+      })
       : navigator
         .mediaDevices
         .getUserMedia({
-          video: !1,
-          audio: !0
+          video: false,
+          audio: true
         })
-        .then(function (e) {
-          tracks = e.getTracks(),
-            a(e)
-        })["catch"](function (a) {
-          console.log(a)
+        .then((res) => {
+          tracks = res.getTracks(),
+          mainFlow(res)
+        }).catch((err) => {
+          console.log(err);
         })
-  )
 }
-function stop() {
-  tracks && (tracks.forEach(function (a: any) {
-    a.stop()
-  }), tracks = null, stopflg = !0)
-}
-var msg,
-  tone,
-  audioCtx: AudioContext,
-  audioSourceNode: MediaStreamAudioSourceNode,
-  analyserNode: AnalyserNode,
-  tracks: any,
-  firstflg = !0,
-  stopflg = !1,
-  dataArray: Float32Array,
-  dB_range: number,
-  fs: number,
-  Hz = [
+// const stop = () => {
+//   tracks && (tracks.forEach((a: any) => {
+//     mainFlow.stop()
+//   }), tracks = [], isStopAnalyze = !0)
+// }
+
+const Hz = [
     27.5,
     29.13523509488062,
     30.867706328507758,
@@ -230,7 +277,7 @@ var msg,
     3951.066410048997,
     4186.0090448095825
   ],
-  code = [
+  chord = [
     "A0",
     "A#0",
     "B0",
@@ -319,8 +366,9 @@ var msg,
     "A#7",
     "B7",
     "C8"
-  ]
+  ];
 
-window.onload = function () {
-  playAudio()
-};
+
+window.addEventListener('load',()=>{
+  playAudio();
+})
