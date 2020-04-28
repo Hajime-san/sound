@@ -41,7 +41,6 @@ const prepareBuffer = async (path: string) => {
 //   source.buffer = await prepareBuffer('./korobeiniki.mp3'); //5. 再生するバッファを指定
 //   source.connect(context.destination); // SourceノードをDestinationにつなぐ
 //   source.start(0);//6. 再生開始
-
 // }
 
 //window.addEventListener('load', () => play());
@@ -61,6 +60,111 @@ const getAverageVolume = (array: Uint8Array) => {
   return average;
 }
 
+const getPeaksAtThreshold = (data: any, threshold: any) => {
+  var peaksArray = [];
+  var length = data.length;
+  for(var i = 0; i < length;) {
+    if (data[i] > threshold) {
+      peaksArray.push(i);
+      // Skip forward ~ 1/4s to get past this peak.
+      i += 10000;
+    }
+    i++;
+  }
+  return peaksArray;
+}
+
+function getPeaks(data: Float32Array, sampleRate: number) {
+
+  var partSize = sampleRate / 2,
+      parts = data.length / partSize,
+      peaks = [];
+
+  for (var i = 0; i < parts; i++) {
+    var max = {
+      position: 0,
+      volume: 0
+    }
+    for (var j = i * partSize; j < (i + 1) * partSize; j++) {
+      var v =  Math.abs(data[j]);
+
+      if (!max || (v > max.volume)) {
+        max = {
+          position: j,
+          volume: v
+        };
+      }
+    }
+    peaks.push(max);
+  }
+
+  // We then sort the peaks according to volume...
+
+  peaks.sort(function(a, b) {
+    return b.volume - a.volume;
+  });
+
+  // ...take the loundest half of those...
+
+  peaks = peaks.splice(0, peaks.length * 0.5);
+
+  // ...and re-sort it back based on position.
+
+  peaks.sort(function(a, b) {
+    return a.position - b.position;
+  });
+
+  return peaks;
+}
+
+type Peaks = { position: number; volume: number; }[];
+
+function getIntervals(peaks: Peaks, sampleRate: number) {
+
+  // What we now do is get all of our peaks, and then measure the distance to
+  // other peaks, to create intervals.  Then based on the distance between
+  // those peaks (the distance of the intervals) we can calculate the BPM of
+  // that particular interval.
+
+  // The interval that is seen the most should have the BPM that corresponds
+  // to the track itself.
+  type Groups = { tempo: number; count: number; }[];
+
+  var groups: Groups = [];
+
+  peaks.forEach(function(peak, index) {
+    for (var i = 1; (index + i) < peaks.length && i < 10; i++) {
+      var group = {
+        tempo: (60 * sampleRate) / (peaks[index + i].position - peak.position),
+        count: 1
+      };
+
+      while (group.tempo < 90) {
+        group.tempo *= 2;
+      }
+
+      while (group.tempo > 180) {
+        group.tempo /= 2;
+      }
+
+      group.tempo = Math.round(group.tempo);
+
+      if (!(groups.some(function(interval) {
+        return (interval.tempo === group.tempo ? interval.count++ : 0);
+      }))) {
+        groups.push(group);
+      }
+    }
+  });
+
+
+  groups.sort(function(a, b) {
+    return b.count - a.count;
+  });
+
+  return groups;
+}
+
 const playAudio = () => {
   let tone,
       audioSourceNode: MediaStreamAudioSourceNode,
@@ -71,19 +175,25 @@ const playAudio = () => {
 
   const mainFlow = async (stream: MediaStream) => {
 
-    // like mp3, source from completed media
-    // const source = context.createBufferSource();
-    // source.buffer = await prepareBuffer('./korobeiniki.mp3');
+    /*
+      like mp3, source from completed media
+    */
+    const source = context.createBufferSource();
+    source.buffer = await prepareBuffer('./korobeiniki.mp3');
+
+    //console.log(peaks);
+
 
     if (!isClearFirstAuthorizationOfEnviroment) {
       return;
     }
 
-    // on user's integrated media of device
-    audioSourceNode && audioSourceNode.disconnect();
-    audioSourceNode = context.createMediaStreamSource(stream);
-    analyserNode && analyserNode.disconnect();
-    // on user's integrated media of device
+    /*
+      on user's integrated media of device
+    */
+    // audioSourceNode && audioSourceNode.disconnect();
+    // audioSourceNode = context.createMediaStreamSource(stream);
+    // analyserNode && analyserNode.disconnect();
 
     analyserNode = context.createAnalyser();
     //analyserNode.fftSize = 32768;
@@ -91,13 +201,17 @@ const playAudio = () => {
     const dB_range = analyserNode.maxDecibels - analyserNode.minDecibels;
     const dataArray = new Float32Array(analyserNode.frequencyBinCount);
 
-    // like mp3, source from completed media
-    // source.connect(analyserNode);
-    // analyserNode.connect(context.destination);
-    // source.start(0);
+    /*
+      like mp3, source from completed media
+    */
+    source.connect(analyserNode);
+    analyserNode.connect(context.destination);
+    source.start(0);
 
-    // on user's integrated media of device
-    audioSourceNode.connect(analyserNode);
+    /*
+      on user's integrated media of device
+    */
+    // audioSourceNode.connect(analyserNode);
 
     const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
 
@@ -107,7 +221,6 @@ const playAudio = () => {
       // volume
       analyserNode.getByteFrequencyData(fourierVolumeArray);
       const average = getAverageVolume(fourierVolumeArray);
-      console.log('VOLUME:' + average); //here's the volume
 
       const getNormalization = (r: number) => {
         return (dataArray[r] - analyserNode.maxDecibels) / dB_range * -1;
@@ -145,7 +258,11 @@ const playAudio = () => {
         }
       }
       tone = chord[extendedRange];
-      console.log(tone);
+
+      if(average > 10) {
+        //console.log('VOLUME:' + average); //here's the volume
+        //console.log(tone);
+      }
 
       requestAnimationFrame(tickAnalyze);
     };
@@ -369,6 +486,104 @@ const Hz = [
   ];
 
 
+const offline = async () => {
+
+
+  // Create buffer source
+  const prepareOffLineBuffer = async (path: string) => {
+    //2. fetch APIで音声ファイルを取得
+    const res = await fetch(path);
+
+    //ArrayBufferを取得
+    const arr = await res.arrayBuffer();
+
+    return arr;
+  }
+
+  const onlineBuffer = await prepareBuffer('./korobeiniki.mp3');
+
+  // const offLineBuffer = await prepareOffLineBuffer('./bridge.mp3');
+
+  // var offlineContext = new OfflineAudioContext(2, onlineBuffer.length, onlineBuffer.sampleRate);
+
+  // offlineContext.decodeAudioData(offLineBuffer).then((res) =>{
+  //   // Create buffer source
+  //   const source = offlineContext.createBufferSource();
+  //   source.buffer = res;
+
+  //   // フィルタを作成する
+  //   const lowpass = offlineContext.createBiquadFilter();
+  //   lowpass.type = "lowpass";
+  //   lowpass.frequency.value = 150;
+  //   lowpass.Q.value = 1;
+
+  //   const highpass = offlineContext.createBiquadFilter();
+  //   highpass.type = "highpass";
+  //   highpass.frequency.value = 100;
+  //   highpass.Q.value = 1;
+
+  //   // フィルタをチェインしてコンテキストにつなぐ
+  //   source.connect(lowpass);
+  //   lowpass.connect(highpass);
+  //   highpass.connect(offlineContext.destination);
+
+  //   // 開始
+  //   source.start(0);
+  //   // Render the song
+  //   offlineContext.startRendering();
+  // })
+
+  const filter = async (buffer: AudioBuffer) => {
+    // レンダリング用のオフラインコンテキストを生成
+    const offlineContext = new OfflineAudioContext(1, buffer.length, buffer.sampleRate);
+
+    // Sourceを作成
+    const source = offlineContext.createBufferSource();
+    source.buffer = buffer;
+
+    // フィルタを作成する
+    const lowpass = offlineContext.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 150;
+    lowpass.Q.value = 1;
+
+    const highpass = offlineContext.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 100;
+    highpass.Q.value = 1;
+
+    // フィルタをチェインしてコンテキストにつなぐ
+    source.connect(lowpass);
+    lowpass.connect(highpass);
+    highpass.connect(offlineContext.destination);
+
+    // 開始
+    source.start(0);
+
+    // レンダリングをする
+    return offlineContext.startRendering()
+  }
+
+  const decode = await filter(onlineBuffer);
+
+  var peaks = getPeaks(decode.getChannelData(0), onlineBuffer.sampleRate);
+  var groups = getIntervals(peaks, onlineBuffer.sampleRate);
+  console.log(groups);
+
+
+  // Act on the result
+  // offlineContext.oncomplete = function(e) {
+  //   // Filtered buffer!
+  //   var buffer = e.renderedBuffer;
+  //   var peaks = getPeaks([buffer.getChannelData(0),buffer.getChannelData(1)]);
+  //   var groups = getIntervals(peaks);
+  //   console.log(groups);
+
+  // };
+}
+
+
 window.addEventListener('load',()=>{
-  playAudio();
+  //playAudio();
+  offline();
 })
