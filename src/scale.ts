@@ -1,4 +1,5 @@
 import * as PitchName2freq from './PitchName2freq';
+import * as Fn from './util';
 
 // ealry create pitch name resource
 const pitchName2freq = PitchName2freq.create();
@@ -8,7 +9,8 @@ export class Analyze {
   tracks: MediaStreamTrack[];
   isPassFirstAuthorizationOfEnviroment: boolean;
   isStopAnalyze: boolean;
-  currentPitch: PitchName2freq.PitchName;
+  currentScale: PitchName2freq.PitchName;
+  volume: number;
   constructor(
     audioContext: AudioContext
     ) {
@@ -16,7 +18,8 @@ export class Analyze {
     this.tracks = [];
     this.isPassFirstAuthorizationOfEnviroment = false;
     this.isStopAnalyze = false;
-    this.currentPitch = { pitch: 'A0', Hz: 27.5 };
+    this.currentScale = { pitch: 'A0', Hz: 27.5 };
+    this.volume = 0;
   }
 
   private async initMediaStream() {
@@ -57,17 +60,19 @@ export class Analyze {
     return average;
   }
 
-  private tickAnalyze(analyser: AnalyserNode, bufferLength: Float32Array, currentHz: number, dBrange: number, fourierVolumeArray: Uint8Array) {
+  private tickAnalyze(analyser: AnalyserNode, bufferLength: Float32Array, currentHz: number, dBrange: number, fourierVolumeArray: Uint8Array, minVolume?: number) {
+    // default min volume
+    if(minVolume === undefined) {
+      minVolume = 10;
+    }
 
     analyser.getFloatFrequencyData(bufferLength);
 
-    // volume
+    // analyze volume
     analyser.getByteFrequencyData(fourierVolumeArray);
     const average = this.getAverageVolume(fourierVolumeArray);
 
-    const getNormalization = (r: number) => {
-      return (bufferLength[r] - analyser.maxDecibels) / dBrange * -1;
-    }
+    const getNormalization = (r: number) =>  (bufferLength[r] - analyser.maxDecibels) / dBrange * -1;
 
     let extendedRange = 0;
     for (let range = 0,
@@ -100,21 +105,45 @@ export class Analyze {
         break;
       }
     }
-    this.currentPitch = pitchName2freq[extendedRange];
 
-    if(average > 10) {
-      //console.log('VOLUME:' + average); //here's the volume
-      //console.log(tone);
+    this.currentScale = pitchName2freq[extendedRange];
+    this.volume = average;
 
-      console.log(this.currentPitch.pitch);
-
+    if(average > minVolume) {
+      this.currentScale = pitchName2freq[extendedRange];
+      this.volume = average;
+      console.log('VOLUME:' + average);
+      console.log(this.currentScale.pitch);
     }
 
-    requestAnimationFrame(()=> this.tickAnalyze(analyser, bufferLength, currentHz, dBrange, fourierVolumeArray));
+    requestAnimationFrame(()=> this.tickAnalyze(analyser, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume));
+  }
+
+  // like mp3, source from completed media
+  async analyzeScaleFromAudioFile(path: string, minVolume?: number) {
+    // check user interaction
+    this.authorization();
+
+    const source = this.context.createBufferSource();
+    source.buffer = await Fn.prepareBuffer(this.context, path);
+
+    const analyserNode = this.context.createAnalyser();
+    const currentHz = this.context.sampleRate / analyserNode.fftSize;
+    const dB_range = analyserNode.maxDecibels - analyserNode.minDecibels;
+    const bufferLength = new Float32Array(analyserNode.frequencyBinCount);
+    const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
+
+    // connect analyzer to audio buffer
+    source.connect(analyserNode);
+    analyserNode.connect(this.context.destination);
+    source.start(0);
+
+    // start analyzing!!
+    this.tickAnalyze(analyserNode, bufferLength, currentHz, dB_range, fourierVolumeArray, minVolume);
   }
 
   // sound from user's integrated media of device
-  async analyzeScaleFromMediaStream() {
+  async analyzeScaleFromMediaStream(minVolume?: number) {
     // check user interaction
     this.authorization();
 
@@ -135,12 +164,10 @@ export class Analyze {
     const bufferLength = new Float32Array(analyserNode.frequencyBinCount);
     const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
 
-    // connect analyzer to mediaStream
+    // connect analyzer to mediaStream buffer
     audioSourceNode.connect(analyserNode);
 
     // start analyzing!!
-    this.tickAnalyze(analyserNode, bufferLength, currentHz, dB_range, fourierVolumeArray);
-
-
+    this.tickAnalyze(analyserNode, bufferLength, currentHz, dB_range, fourierVolumeArray, minVolume);
   }
 }

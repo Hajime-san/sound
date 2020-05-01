@@ -130,8 +130,8 @@ const filterAudioBuffer = async (buffer: AudioBuffer) => {
   return offlineContext.startRendering();
 }
 
-export const analyzeBMPthroughOneSong = async (path: string, context: AudioContext) => {
-  const buffer = await Fn.prepareBuffer(path, context);
+export const analyzeAverageBMPthroughSong = async (context: AudioContext, path: string) => {
+  const buffer = await Fn.prepareBuffer(context, path);
   const filteredAudioBuffer = await filterAudioBuffer(buffer);
   const peaks = getPeaks(filteredAudioBuffer.getChannelData(0), filteredAudioBuffer.sampleRate);
   const groups = getIntervals(peaks, filteredAudioBuffer.sampleRate);
