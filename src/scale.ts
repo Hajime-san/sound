@@ -62,8 +62,10 @@ export class Analyze {
 
   private tickAnalyze(analyser: AnalyserNode, bufferLength: Float32Array, currentHz: number, dBrange: number, fourierVolumeArray: Uint8Array, minVolume?: number) {
     // default min volume
+    const DEFAULT_MIN_VOLUME = 10;
+
     if(minVolume === undefined) {
-      minVolume = 10;
+      minVolume = DEFAULT_MIN_VOLUME;
     }
 
     analyser.getFloatFrequencyData(bufferLength);
@@ -106,17 +108,20 @@ export class Analyze {
       }
     }
 
-    this.currentScale = pitchName2freq[extendedRange];
-    this.volume = average;
-
-    if(average > minVolume) {
-      this.currentScale = pitchName2freq[extendedRange];
-      this.volume = average;
-      console.log('VOLUME:' + average);
-      console.log(this.currentScale.pitch);
+    const tick = () => {
+      if(minVolume === undefined) {
+        return;
+      }
+      if(average > minVolume) {
+        this.currentScale = pitchName2freq[extendedRange];
+        this.volume = average;
+      }
     }
 
-    requestAnimationFrame(()=> this.tickAnalyze(analyser, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume));
+    requestAnimationFrame(()=> {
+      this.tickAnalyze(analyser, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume);
+      tick();
+    });
   }
 
   // like mp3, source from completed media
@@ -124,12 +129,14 @@ export class Analyze {
     // check user interaction
     this.authorization();
 
+    // create resource
     const source = this.context.createBufferSource();
     source.buffer = await Fn.prepareBuffer(this.context, path);
 
+    // set analyzer
     const analyserNode = this.context.createAnalyser();
     const currentHz = this.context.sampleRate / analyserNode.fftSize;
-    const dB_range = analyserNode.maxDecibels - analyserNode.minDecibels;
+    const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
     const bufferLength = new Float32Array(analyserNode.frequencyBinCount);
     const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
 
@@ -139,7 +146,7 @@ export class Analyze {
     source.start(0);
 
     // start analyzing!!
-    this.tickAnalyze(analyserNode, bufferLength, currentHz, dB_range, fourierVolumeArray, minVolume);
+    this.tickAnalyze(analyserNode, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume);
   }
 
   // sound from user's integrated media of device
@@ -154,13 +161,13 @@ export class Analyze {
       return
     }
 
-    // create mediaStream from user device
+    // create resource
     const audioSourceNode = this.context.createMediaStreamSource(mediaStream);
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
     const currentHz = this.context.sampleRate / analyserNode.fftSize;
-    const dB_range = analyserNode.maxDecibels - analyserNode.minDecibels;
+    const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
     const bufferLength = new Float32Array(analyserNode.frequencyBinCount);
     const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
 
@@ -168,6 +175,6 @@ export class Analyze {
     audioSourceNode.connect(analyserNode);
 
     // start analyzing!!
-    this.tickAnalyze(analyserNode, bufferLength, currentHz, dB_range, fourierVolumeArray, minVolume);
+    this.tickAnalyze(analyserNode, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume);
   }
 }
