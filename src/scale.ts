@@ -1,15 +1,15 @@
-import * as PitchName2freq from './PitchName2freq';
+import * as frequencyToScaleData from './frequencyToScale';
 import * as Fn from './util';
 
 // ealry create pitch name resource
-const pitchName2freq = PitchName2freq.create();
+const frequencyToScale = frequencyToScaleData.create();
 
 export class Analyze {
   private context: AudioContext;
   tracks: MediaStreamTrack[];
   isPassFirstAuthorizationOfEnviroment: boolean;
   isStopAnalyze: boolean;
-  currentScale: PitchName2freq.PitchName;
+  currentScale: frequencyToScaleData.PitchName;
   volume: number;
   constructor(
     audioContext: AudioContext
@@ -86,18 +86,18 @@ export class Analyze {
       normalized = getNormalization(range),
       total > normalized && (total = normalized, extendedRange = range);
 
-    for (let incrementHz = 0; incrementHz < pitchName2freq.length; incrementHz++) {
+    for (let incrementHz = 0; incrementHz < frequencyToScale.length; incrementHz++) {
       const convertkHzToHz = extendedRange * currentHz;
-      const lastHz = pitchName2freq[incrementHz].Hz;
+      const lastHz = frequencyToScale[incrementHz].Hz;
       const overflowedIndex = incrementHz + 1;
-      const overflowedHz = pitchName2freq[overflowedIndex].Hz;
+      const overflowedHz = frequencyToScale[overflowedIndex].Hz;
 
-      if (convertkHzToHz <= pitchName2freq[0].Hz) {
+      if (convertkHzToHz <= frequencyToScale[0].Hz) {
         extendedRange = 0;
         break;
       }
-      if (convertkHzToHz >= pitchName2freq[pitchName2freq.length - 1].Hz) {
-        extendedRange = pitchName2freq.length - 1;
+      if (convertkHzToHz >= frequencyToScale[frequencyToScale.length - 1].Hz) {
+        extendedRange = frequencyToScale.length - 1;
         break;
       }
       if (convertkHzToHz >= lastHz && overflowedHz >= convertkHzToHz) {
@@ -113,7 +113,7 @@ export class Analyze {
         return;
       }
       if(average > minVolume) {
-        this.currentScale = pitchName2freq[extendedRange];
+        this.currentScale = frequencyToScale[extendedRange];
         this.volume = average;
       }
     }
