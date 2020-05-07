@@ -6,9 +6,36 @@
 	<title>Document</title>
 	<script type="text/javascript" src="bundle.js" defer></script>
 </head>
+<style>
+	* {
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+	#sound {
+		width: 100vw;
+		height: 100vh;
+	}
+	.information {
+		position: fixed;
+		top: 30px;
+		right: 30px;
+		width: 200px;
+		padding: 10px;
+		background-color: rgba(0,0,0,0.6);
+		outline: 1px solid #ddd;
+		color: #fff;
+	}
+	.information dl {
+		margin-bottom: 10px;
+	}
+	.information dl:last-child {
+		margin-bottom: 0;
+	}
+</style>
 <body>
-	<p>Sound Demo</p>
-	<div>
+	<!-- <p>Sound Demo</p> -->
+	<div class="information">
 		<dl>
 			<dt>Pitch:</dt>
 			<dd id="pitch"></dd>
@@ -26,5 +53,6 @@
 			<dd id="bpm"></dd>
 		</dl>
 	</div>
+	<div id="sound"></div>
 </body>
 </html>

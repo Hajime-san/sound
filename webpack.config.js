@@ -1,6 +1,10 @@
 const path = require('path');
 
 module.exports = {
+    devServer: {
+        contentBase: path.join(__dirname, 'dist'),
+        port: 8000
+    },
     entry: {
         bundle: './src/app.ts'
     },
@@ -10,9 +14,6 @@ module.exports = {
     },
     resolve: {
         extensions:['.ts','.js']
-    },
-    devServer: {
-        contentBase: path.join(__dirname,'dist')
     },
     module: {
         rules: [
