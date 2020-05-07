@@ -18,7 +18,7 @@ export class Analyze {
     this.tracks = [];
     this.isPassFirstAuthorizationOfEnviroment = false;
     this.isStopAnalyze = false;
-    this.currentScale = { pitch: 'A0', Hz: 27.5 };
+    this.currentScale = { pitch: frequencyToScale[0].pitch, Hz: frequencyToScale[0].Hz };
     this.volume = 0;
   }
 
