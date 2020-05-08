@@ -73,7 +73,6 @@ export const create = () => {
 
     PitchNames.push(list);
   }
-  //console.log(PitchNames);
 
   return PitchNames;
 }

@@ -9,8 +9,8 @@ export class Analyze {
   tracks: MediaStreamTrack[];
   isPassFirstAuthorizationOfEnviroment: boolean;
   isStopAnalyze: boolean;
-  currentScale: frequencyToScaleData.PitchName;
-  volume: number;
+  private _currentScale: frequencyToScaleData.PitchName;
+  private _volume: number;
   constructor(
     audioContext: AudioContext
     ) {
@@ -18,10 +18,20 @@ export class Analyze {
     this.tracks = [];
     this.isPassFirstAuthorizationOfEnviroment = false;
     this.isStopAnalyze = false;
-    this.currentScale = { pitch: frequencyToScale[0].pitch, Hz: frequencyToScale[0].Hz };
-    this.volume = 0;
+    this._currentScale = { pitch: frequencyToScale[0].pitch, Hz: frequencyToScale[0].Hz };
+    this._volume = 0;
   }
 
+  // getter
+  get currentScale() {
+    return this._currentScale;
+  }
+
+  get volume() {
+    return this._volume;
+  }
+
+  // initialize media devices
   private async initMediaStream() {
     let stream = null;
 
@@ -39,12 +49,14 @@ export class Analyze {
     return stream;
   }
 
+  // check user acknowledgment
   private authorization() {
     if (!this.isPassFirstAuthorizationOfEnviroment) {
       return;
     }
   }
 
+  // calculate volume method
   private getAverageVolume = (array: Uint8Array) => {
     let values = 0;
     let average: number;
@@ -60,6 +72,7 @@ export class Analyze {
     return average;
   }
 
+  // analyze scale at real time
   private tickAnalyze(analyser: AnalyserNode, bufferLength: Float32Array, currentHz: number, dBrange: number, fourierVolumeArray: Uint8Array, minVolume?: number) {
     // default min volume
     const DEFAULT_MIN_VOLUME = 10;
@@ -113,8 +126,8 @@ export class Analyze {
         return;
       }
       if(average > minVolume) {
-        this.currentScale = frequencyToScale[extendedRange];
-        this.volume = average;
+        this._currentScale = frequencyToScale[extendedRange];
+        this._volume = average;
       }
     }
 

@@ -2,6 +2,12 @@ import * as Fn from './util';
 
 type Peaks = { position: number; volume: number; }[];
 
+/*
+  below algorithm
+  http://joesul.li/van/beat-detection-using-web-audio/
+  https://github.com/JMPerez/beats-audio-api
+*/
+
 const getPeaks = (data: Float32Array, sampleRate: number) => {
   // What we're going to do here, is to divide up our audio into parts.
 

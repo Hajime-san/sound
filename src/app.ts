@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     await analyze.analyzeScaleFromAudioFile('./assets/cyborg.mp3', 0);
 
-
     // // await analyze.analyzeScaleFromMediaStream();
 
     const pitchElement = document.getElementById('pitch') as HTMLElement;
@@ -29,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       requestAnimationFrame(tick)
     }
 
-    requestAnimationFrame(tick);
+    tick();
 
     const canvas = document.getElementById('sound') as HTMLElement;
     const scene = new THREE.Scene();
@@ -44,7 +43,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     const sphere = new THREE.Mesh( geometry, material );
     scene.add( sphere );
 
-    const starGeo = new THREE.Geometry();
+    const starGeometry = new THREE.Geometry();
+
     for(let i = 0; i < 6000; i++) {
       const star: any = new THREE.Vector3(
         Math.random() * 600 - 300,
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       );
       star.velocity = 0;
       star.acceleration = bpm * 0.0001;
-      starGeo.vertices.push(star);
+      starGeometry.vertices.push(star);
     }
 
     const starMaterial = new THREE.PointsMaterial({
@@ -61,11 +61,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       color: 0xFFFFFF,
     });
 
-    const mesh = new THREE.Points(starGeo, starMaterial);
+    const mesh = new THREE.Points(starGeometry, starMaterial);
     scene.add(mesh);
 
     const tickStar = () => {
-      starGeo.vertices.forEach((p: any, i) => {
+      starGeometry.vertices.forEach((p: any, i) => {
         p.velocity += p.acceleration
         p.z -= p.velocity;
 
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
           p.velocity = 0;
         }
       });
-      starGeo.verticesNeedUpdate = true
+      starGeometry.verticesNeedUpdate = true;
 
       starMaterial.size = analyze.volume * 0.02;
 
@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       } else if (analyze.currentScale.pitch.indexOf('B') !== -1) {
         starMaterial.color.set(0xffffff)
       }
+
     }
 
 
