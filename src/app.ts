@@ -15,10 +15,17 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     // // await analyze.analyzeScaleFromMediaStream();
 
-    Graphics.init(bpm)
+    console.log(analyze.normalizedHz);
+
+    Graphics.init();
+
+    Graphics.initPosition(analyze.volume);
+
+    Graphics.initComputeRenderer(analyze.normalizedHz, analyze.volume);
 
     const tick = () => {
       Gui.tick(analyze.currentScale, analyze.volume, bpm);
+      Graphics.dynamicValuesChanger(analyze.currentScale, analyze.volume);
       Graphics.animate(analyze.currentScale, analyze.volume);
       requestAnimationFrame(tick);
     }

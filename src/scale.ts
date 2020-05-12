@@ -31,6 +31,16 @@ export class Analyze {
     return this._volume;
   }
 
+  get normalizedHz() {
+    let normal: number;
+
+    const lowestHz = frequencyToScale[0].Hz
+    const heighestHz = frequencyToScale[frequencyToScale.length - 1].Hz;
+
+    normal = (this._currentScale.Hz - lowestHz) / (heighestHz - lowestHz);
+    return normal;
+  }
+
   // initialize media devices
   private async initMediaStream() {
     let stream = null;
