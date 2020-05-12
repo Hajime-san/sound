@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     // // await analyze.analyzeScaleFromMediaStream();
 
-    Graphics.init(bpm);
+    Graphics.init(bpm)
 
     const tick = () => {
       Gui.tick(analyze.currentScale, analyze.volume, bpm);
