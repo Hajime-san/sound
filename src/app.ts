@@ -15,8 +15,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     // // await analyze.analyzeScaleFromMediaStream();
 
-    console.log(analyze.normalizedHz);
-
     Graphics.init();
 
     Graphics.initPosition(analyze.volume);

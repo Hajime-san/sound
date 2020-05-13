@@ -47,8 +47,8 @@ export const init = () => {
   container = document.getElementById( 'sound' ) as HTMLElement;
   document.body.appendChild( container );
   camera = new THREE.PerspectiveCamera( 100, window.innerWidth / window.innerHeight, 5, 15000 );
-  camera.position.y = 80;
-  camera.position.z = 200;
+  camera.position.y = 0;
+  camera.position.z = 150;
   scene = new THREE.Scene();
   renderer = new THREE.WebGLRenderer();
   renderer.setClearColor( 0x000000 );
@@ -108,7 +108,7 @@ export function initComputeRenderer(normalizedHz: any, volume: number) {
   const dtPosition = gpuCompute.createTexture();
   const dtVelocity = gpuCompute.createTexture();
 
-  fillTextures( dtPosition, dtVelocity );
+  fillTextures( dtPosition, dtVelocity, volume );
 
   velocityVariable = gpuCompute.addVariable( "textureVelocity", computeShaderVelocity(), dtVelocity );
   positionVariable = gpuCompute.addVariable( "texturePosition", computeShaderPosition(), dtPosition );
@@ -141,18 +141,18 @@ export function initComputeRenderer(normalizedHz: any, volume: number) {
 export function initPosition(volume: number) {
 
   geometry = new THREE.BufferGeometry();
-  var positions = new Float32Array( PARTICLES * 3 );
-  var p = 0;
-  for ( var i = 0; i < PARTICLES; i++ ) {
+  const positions = new Float32Array( PARTICLES * 3 );
+  let p = 0;
+  for ( let i = 0; i < PARTICLES; i++ ) {
       positions[ p++ ] = 0;
       positions[ p++ ] = 0;
       positions[ p++ ] = 0;
   }
 
-  var uvs = new Float32Array( PARTICLES * 2 );
+  const uvs = new Float32Array( PARTICLES * 2 );
   p = 0;
-  for ( var j = 0; j < WIDTH; j++ ) {
-      for ( var i = 0; i < WIDTH; i++ ) {
+  for ( let j = 0; j < WIDTH; j++ ) {
+      for ( let i = 0; i < WIDTH; i++ ) {
           uvs[ p++ ] = i / ( WIDTH - 1 );
           uvs[ p++ ] = j / ( WIDTH - 1 );
       }
@@ -187,33 +187,44 @@ export function initPosition(volume: number) {
 
   scene.add( particles );
 
+  // var line = new THREE.Line( geometry, mat );
+  // line.matrixAutoUpdate = false;
+  // line.updateMatrix();
+  // scene.add( line );
+
 }
 
 function getCameraConstant( camera: any) {
   return window.innerHeight / ( Math.tan( THREE.Math.DEG2RAD * 0.5 * camera.fov ) / camera.zoom );
 }
 
-function fillTextures( texturePosition:  any, textureVelocity:  any ) {
+function fillTextures( texturePosition:  any, textureVelocity:  any, volume: number ) {
 
-  var posArray = texturePosition.image.data;
-  var velArray = textureVelocity.image.data;
+  const posArray = texturePosition.image.data;
+  const velArray = textureVelocity.image.data;
 
-  for ( var k = 0, kl = posArray.length; k < kl; k += 4 ) {
+  const getRandomInt = (min, max) =>  Math.floor(Math.random() * (max - min)) + min;
+
+  const radius = 100;
+
+  for ( let k = 0, kl = posArray.length; k < kl; k += 4 ) {
+    const rad = getRandomInt(0, 360);
+    const rad2 = getRandomInt(0, 360);
       // Position
-      var x, y, z;
-      x = Math.random()*100-50;
-      z = Math.random()*100-50;
-      y = Math.random()*100-50;
+      let x, y, z;
+      x = Math.cos(rad) * Math.cos(rad2) * radius;
+      y = Math.cos(rad) * Math.sin(rad2) * radius;
+      z = Math.sin(rad) * radius;
 
       posArray[ k + 0 ] = x;
       posArray[ k + 1 ] = y;
       posArray[ k + 2 ] = z;
       posArray[ k + 3 ] = 0;
 
-      velArray[ k + 0 ] = Math.random()*2-1;
-      velArray[ k + 1 ] = Math.random()*2-1;
-      velArray[ k + 2 ] = Math.random()*2-1;
-      velArray[ k + 3 ] = Math.random()*2-1;
+      velArray[ k + 0 ] = Math.random();
+      velArray[ k + 1 ] = Math.random();
+      velArray[ k + 2 ] = Math.random();
+      velArray[ k + 3 ] = Math.random();
   }
 }
 
@@ -336,17 +347,32 @@ export function dynamicValuesChanger(currentScale: any, volume: number) {
 
 function computeShaderPosition() {
   return `
-    #define delta ( 1.0 / 60.0 )
+    #define delta ( 1.0 / 600.0 )
+
+    uniform float volume;
 
     void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 tmpPos = texture2D( texturePosition, uv );
-        vec3 pos = tmpPos.xyz;
+        vec4 pos = vec4(tmpPos.xyz, volume);
         vec4 tmpVel = texture2D( textureVelocity, uv );
-        vec3 vel = tmpVel.xyz;
+        vec4 vel = vec4(tmpVel.xyz, volume);
+
+        // float move = 0.0;
+
+        // if(pos.w < vel.w) {
+        //   move = 1.0 / 60.0;
+        //   pos += vec4(vel.x * move, vel.y * move, vel.z * move, volume);
+        // } else {
+        //   move = -(1.0 / 60.0);
+        //   pos += vec4(vel.x * move, vel.y * move, vel.z * move, volume);
+        // }
 
         pos += vel * delta;
-        gl_FragColor = vec4( pos, 1.0 );
+
+        // Dynamics
+
+        gl_FragColor = pos;
     }
   `
 }
@@ -357,13 +383,24 @@ function computeShaderVelocity() {
 
     uniform float volume;
 
+    //const float PI = 3.1415926535897932384626433832795;
+
     void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         float idParticle = uv.y * resolution.x + uv.x;
         vec4 tmpVel = texture2D( textureVelocity, uv );
-        vec3 vel = sin(tmpVel.xyz + (volume * 1000.0));
+        vec3 vel = tmpVel.xyz;
 
-        gl_FragColor = vec4( vel.xyz, 1.0 );
+        float rad = mod(tmpVel.w , 360.0) * 3.1415926535897932384626433832795 / 180.0;
+        float t = cos(rad);
+        vel.x = 0.0;
+        vel.x = 0.0;
+        vel.x = 0.0;
+        // vel.x = cos(rad) * cos(rad2) * rad;
+        // vel.y = cos(rad) * sin(rad2) * rad;
+        // vel.z = sin(rad) * rad;
+
+        gl_FragColor = vec4( vel, 1.0 );
     }
   `
 }
@@ -373,7 +410,6 @@ function particleVertexShader() {
     #include <common>
     uniform sampler2D texturePosition;
     uniform float cameraConstant;
-    uniform float volume;
     uniform vec3 ambient;
     varying vec4 vColor;
     varying vec2 vUv;
