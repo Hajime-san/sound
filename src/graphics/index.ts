@@ -20,8 +20,12 @@ let starGeometry: any,
 let particleUniforms: any,
     positionVariable: GPUComputationRendererVariable,
     velocityVariable: GPUComputationRendererVariable,
+    anglePhiVariable: GPUComputationRendererVariable,
+    angleThetaVariable: GPUComputationRendererVariable,
     positionUniforms: any,
     velocityUniforms: any,
+    anglePhiUniforms: any,
+    angleThetaUniforms: any,
     effectController: any;
 
 
@@ -107,18 +111,25 @@ export function initComputeRenderer(normalizedHz: any, volume: number) {
 
   const dtPosition = gpuCompute.createTexture();
   const dtVelocity = gpuCompute.createTexture();
+  const phiAngles = gpuCompute.createTexture();
+  const thetaAngles = gpuCompute.createTexture();
 
-  fillTextures( dtPosition, dtVelocity, volume );
+  fillTextures( dtPosition, dtVelocity, phiAngles, thetaAngles, volume );
 
   velocityVariable = gpuCompute.addVariable( "textureVelocity", computeShaderVelocity(), dtVelocity );
   positionVariable = gpuCompute.addVariable( "texturePosition", computeShaderPosition(), dtPosition );
+  anglePhiVariable = gpuCompute.addVariable( "anglePhi", computeShaderVelocity(), phiAngles );
+  angleThetaVariable = gpuCompute.addVariable( "angleTheta", computeShaderVelocity(), thetaAngles );
 
   gpuCompute.setVariableDependencies( velocityVariable, [ positionVariable, velocityVariable ] );
   gpuCompute.setVariableDependencies( positionVariable, [ positionVariable, velocityVariable ] );
-
+  gpuCompute.setVariableDependencies( anglePhiVariable, [ positionVariable, velocityVariable ] );
+  gpuCompute.setVariableDependencies( angleThetaVariable, [ positionVariable, velocityVariable ] );
 
   positionUniforms = positionVariable.material.uniforms;
   velocityUniforms = velocityVariable.material.uniforms;
+  anglePhiUniforms = anglePhiVariable.material.uniforms;
+  angleThetaUniforms = angleThetaVariable.material.uniforms;
 
   velocityUniforms.volume = { value: volume };
   velocityUniforms.ambient = {
@@ -187,45 +198,53 @@ export function initPosition(volume: number) {
 
   scene.add( particles );
 
-  // var line = new THREE.Line( geometry, mat );
-  // line.matrixAutoUpdate = false;
-  // line.updateMatrix();
-  // scene.add( line );
-
 }
 
 function getCameraConstant( camera: any) {
   return window.innerHeight / ( Math.tan( THREE.Math.DEG2RAD * 0.5 * camera.fov ) / camera.zoom );
 }
 
-function fillTextures( texturePosition:  any, textureVelocity:  any, volume: number ) {
+function fillTextures( texturePosition:  any, textureVelocity:  any, textureAnglePhi: any, textureAngleTheta: any, volume: number ) {
 
   const posArray = texturePosition.image.data;
   const velArray = textureVelocity.image.data;
+  const phiArr = textureAnglePhi.image.data;
+  const thetaArr = textureAngleTheta.image.data;
 
   const getRandomInt = (min, max) =>  Math.floor(Math.random() * (max - min)) + min;
 
   const radius = 100;
 
-  for ( let k = 0, kl = posArray.length; k < kl; k += 4 ) {
-    const rad = getRandomInt(0, 360);
-    const rad2 = getRandomInt(0, 360);
-      // Position
-      let x, y, z;
-      x = Math.cos(rad) * Math.cos(rad2) * radius;
-      y = Math.cos(rad) * Math.sin(rad2) * radius;
-      z = Math.sin(rad) * radius;
+  for ( let k = 0, i = 0, kl = posArray.length; k < kl; k += 4, i++) {
+    const phi = getRandomInt(0, 360);
+    const theta = getRandomInt(0, 360);
+    // Position
+    let x, y, z;
+    x = Math.cos(phi) * Math.cos(theta) * radius;
+    y = Math.cos(phi) * Math.sin(theta) * radius;
+    z = Math.sin(phi) * radius;
 
-      posArray[ k + 0 ] = x;
-      posArray[ k + 1 ] = y;
-      posArray[ k + 2 ] = z;
-      posArray[ k + 3 ] = 0;
+    posArray[ k + 0 ] = x;
+    posArray[ k + 1 ] = y;
+    posArray[ k + 2 ] = z;
+    posArray[ k + 3 ] = i;
 
-      velArray[ k + 0 ] = Math.random();
-      velArray[ k + 1 ] = Math.random();
-      velArray[ k + 2 ] = Math.random();
-      velArray[ k + 3 ] = Math.random();
+    velArray[ k + 0 ] = Math.random();
+    velArray[ k + 1 ] = Math.random();
+    velArray[ k + 2 ] = Math.random();
+    velArray[ k + 3 ] = 0;
+
+    phiArr[ k + 0 ] = phi;
+    phiArr[ k + 1 ] = 0;
+    phiArr[ k + 2 ] = 0;
+    phiArr[ k + 3 ] = 0;
+
+    thetaArr[ k + 0 ] = theta;
+    thetaArr[ k + 1 ] = 0;
+    thetaArr[ k + 2 ] = 0;
+    thetaArr[ k + 3 ] = 0;
   }
+
 }
 
 function onWindowResize() {
@@ -344,35 +363,25 @@ export function dynamicValuesChanger(currentScale: any, volume: number) {
 
 //};
 
-
 function computeShaderPosition() {
   return `
-    #define delta ( 1.0 / 600.0 )
+    #define delta ( 1.0 / 1.0 )
 
     uniform float volume;
+
+    varying vec2 vUv;
 
     void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 tmpPos = texture2D( texturePosition, uv );
-        vec4 pos = vec4(tmpPos.xyz, volume);
+        vec3 pos = tmpPos.xyz;
         vec4 tmpVel = texture2D( textureVelocity, uv );
-        vec4 vel = vec4(tmpVel.xyz, volume);
-
-        // float move = 0.0;
-
-        // if(pos.w < vel.w) {
-        //   move = 1.0 / 60.0;
-        //   pos += vec4(vel.x * move, vel.y * move, vel.z * move, volume);
-        // } else {
-        //   move = -(1.0 / 60.0);
-        //   pos += vec4(vel.x * move, vel.y * move, vel.z * move, volume);
-        // }
-
-        pos += vel * delta;
+        vec3 vel = tmpVel.xyz;
 
         // Dynamics
+        pos += vel;
 
-        gl_FragColor = pos;
+        gl_FragColor = vec4(pos, tmpPos.w);
     }
   `
 }
@@ -381,26 +390,44 @@ function computeShaderVelocity() {
   return `
     #include <common>
 
+    uniform sampler2D anglePhi;
+    uniform sampler2D angleTheta;
+
     uniform float volume;
 
-    //const float PI = 3.1415926535897932384626433832795;
+    varying vec2 vUv;
+
+    //const float PI = 3.14159265358979;
 
     void main() {
+
+
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         float idParticle = uv.y * resolution.x + uv.x;
+        vec4 tmpPos = texture2D( texturePosition, uv );
+        vec3 pos = tmpPos.xyz;
         vec4 tmpVel = texture2D( textureVelocity, uv );
         vec3 vel = tmpVel.xyz;
+        vec4 phiAngle = texture2D( anglePhi, uv );
+        float phi = phiAngle.x;
+        vec4 thetaAngle = texture2D( angleTheta, uv );
+        float theta = thetaAngle.x;
+        float index = tmpPos.w;
 
-        float rad = mod(tmpVel.w , 360.0) * 3.1415926535897932384626433832795 / 180.0;
-        float t = cos(rad);
-        vel.x = 0.0;
-        vel.x = 0.0;
-        vel.x = 0.0;
-        // vel.x = cos(rad) * cos(rad2) * rad;
-        // vel.y = cos(rad) * sin(rad2) * rad;
-        // vel.z = sin(rad) * rad;
+        // float t = cos(index);
+        // pos.x = pos.x + pos.x * t;
+        // pos.y = pos.y + pos.y * t;
+        // pos.z = pos.z + pos.z * t;
+        // vel -= pos;
 
-        gl_FragColor = vec4( vel, 1.0 );
+        float p = pos.x * PI / 180.0;
+        float t = ((pos.y - 180.0) * PI) / 180.0;
+
+        vel.x = sin(-volume * cos(p) * cos(t));
+        vel.y = sin(volume * sin(p));
+        vel.z = sin(volume * cos(p) * sin(t));
+
+        gl_FragColor = vec4( vel, tmpPos.w );
     }
   `
 }
