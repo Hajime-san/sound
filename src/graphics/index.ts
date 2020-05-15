@@ -1,5 +1,5 @@
-import * as frequencyToScaleData from '../frequencyToScale';
 import * as THREE from 'three';
+// import { OrbitControls } from 'three/examples/js/controls/OrbitControls';
 import { GPUComputationRenderer, GPUComputationRendererVariable } from 'gpucomputationrender-three';
 
 const WIDTH = 500;
@@ -13,41 +13,19 @@ let renderer: any,
     container: any,
     controls: any;
 
-let starGeometry: any,
-    starMaterial: any,
-    gpuCompute: GPUComputationRenderer;
+let gpuCompute: GPUComputationRenderer;
 
 let particleUniforms: any,
     positionVariable: GPUComputationRendererVariable,
     velocityVariable: GPUComputationRendererVariable,
-    anglePhiVariable: GPUComputationRendererVariable,
-    angleThetaVariable: GPUComputationRendererVariable,
-    positionUniforms: any,
+    anglesVariable: GPUComputationRendererVariable,
     velocityUniforms: any,
-    anglePhiUniforms: any,
-    angleThetaUniforms: any,
+    anglesUniforms: any,
     effectController: any;
 
 
 
 export const init = () => {
-  // renderer = new THREE.WebGLRenderer();
-  // scene = new THREE.Scene();
-  // camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
-  // container = document.getElementById('sound') as HTMLElement;
-
-  // renderer.setSize( window.innerWidth, window.innerHeight );
-  // container.appendChild( renderer.domElement );
-
-  // const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
-  // directionalLight.position.set( 0, 1, 1 );
-  // scene.add(directionalLight);
-
-  // const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.3);
-  // scene.add(ambientLight);
-
-  // camera.position.z = 5;
-
   container = document.getElementById( 'sound' ) as HTMLElement;
   document.body.appendChild( container );
   camera = new THREE.PerspectiveCamera( 100, window.innerWidth / window.innerHeight, 5, 15000 );
@@ -59,34 +37,8 @@ export const init = () => {
   renderer.setPixelRatio( window.devicePixelRatio );
   renderer.setSize( window.innerWidth, window.innerHeight );
   container.appendChild( renderer.domElement );
-  // controls = new THREE.OrbitControls( camera, renderer.domElement );
+  // controls = new OrbitControls( camera, renderer.domElement );
   window.addEventListener( 'resize', onWindowResize, false );
-
-  // const geometry = new THREE.SphereGeometry( 1, 32, 32 );
-  // const material = new THREE.MeshStandardMaterial( { color: 0x969696, roughness: 0.5 } );
-  // const sphere = new THREE.Mesh( geometry, material );
-  // scene.add( sphere );
-
-  // starGeometry = new THREE.Geometry();
-
-  // for(let i = 0; i < 6000; i++) {
-  //   const star: any = new THREE.Vector3(
-  //     Math.random() * 600 - 300,
-  //     Math.random() * 600 - 300,
-  //     Math.random() * 600 - 300
-  //   );
-  //   star.velocity = 0;
-  //   star.acceleration = bpm * 0.0001;
-  //   starGeometry.vertices.push(star);
-  // }
-
-  // starMaterial = new THREE.PointsMaterial({
-  //   size: 0.5,
-  //   color: 0xFFFFFF,
-  // });
-
-  // const mesh = new THREE.Points(starGeometry, starMaterial);
-  // scene.add(mesh);
 
   // Can be changed dynamically
   effectController = {
@@ -98,40 +50,35 @@ export const init = () => {
     }
   }
 
-  // initComputeRenderer();
+  initComputeRenderer();
 
-  // initPosition();
+  initPosition();
 
 }
 
-export function initComputeRenderer(normalizedHz: any, volume: number) {
+export function initComputeRenderer() {
 
   gpuCompute = new GPUComputationRenderer( WIDTH, WIDTH, renderer );
 
 
   const dtPosition = gpuCompute.createTexture();
   const dtVelocity = gpuCompute.createTexture();
-  const phiAngles = gpuCompute.createTexture();
-  const thetaAngles = gpuCompute.createTexture();
+  const dtAngles = gpuCompute.createTexture();
 
-  fillTextures( dtPosition, dtVelocity, phiAngles, thetaAngles, volume );
+  fillTextures(dtPosition, dtVelocity, dtAngles);
 
   velocityVariable = gpuCompute.addVariable( "textureVelocity", computeShaderVelocity(), dtVelocity );
   positionVariable = gpuCompute.addVariable( "texturePosition", computeShaderPosition(), dtPosition );
-  anglePhiVariable = gpuCompute.addVariable( "anglePhi", computeShaderVelocity(), phiAngles );
-  angleThetaVariable = gpuCompute.addVariable( "angleTheta", computeShaderVelocity(), thetaAngles );
+  anglesVariable = gpuCompute.addVariable( "textureAngles", setParticlesAngle(), dtAngles );
 
-  gpuCompute.setVariableDependencies( velocityVariable, [ positionVariable, velocityVariable ] );
-  gpuCompute.setVariableDependencies( positionVariable, [ positionVariable, velocityVariable ] );
-  gpuCompute.setVariableDependencies( anglePhiVariable, [ positionVariable, velocityVariable ] );
-  gpuCompute.setVariableDependencies( angleThetaVariable, [ positionVariable, velocityVariable ] );
+  gpuCompute.setVariableDependencies( velocityVariable, [ positionVariable, velocityVariable, anglesVariable ] );
+  gpuCompute.setVariableDependencies( positionVariable, [ positionVariable, velocityVariable, anglesVariable ]  );
+  gpuCompute.setVariableDependencies( anglesVariable, [ positionVariable, velocityVariable, anglesVariable ]  );
 
-  positionUniforms = positionVariable.material.uniforms;
   velocityUniforms = velocityVariable.material.uniforms;
-  anglePhiUniforms = anglePhiVariable.material.uniforms;
-  angleThetaUniforms = angleThetaVariable.material.uniforms;
+  anglesUniforms = anglesVariable.material.uniforms;
 
-  velocityUniforms.volume = { value: volume };
+  velocityUniforms.volume = { value: 0.0 };
   velocityUniforms.ambient = {
     value: {
       r: 0,
@@ -149,7 +96,7 @@ export function initComputeRenderer(normalizedHz: any, volume: number) {
 
 }
 
-export function initPosition(volume: number) {
+export function initPosition() {
 
   geometry = new THREE.BufferGeometry();
   const positions = new Float32Array( PARTICLES * 3 );
@@ -174,25 +121,25 @@ export function initPosition(volume: number) {
   geometry.addAttribute('uv', new THREE.BufferAttribute( uvs, 2 ) );
 
   particleUniforms = {
-      texturePosition: { value: null },
-      textureVelocity: { value: null },
-      cameraConstant: { value: getCameraConstant( camera ) },
-      ambient: {
-        value: {
-          r: 0,
-          g: 0,
-          b: 0
-        }
+    texturePosition: { value: null },
+    textureVelocity: { value: null },
+    cameraConstant: { value: getCameraConstant( camera ) },
+    ambient: {
+      value: {
+        r: 0,
+        g: 0,
+        b: 0
       }
+    }
   };
 
-  const mat = new THREE.ShaderMaterial( {
+  const material = new THREE.ShaderMaterial( {
       uniforms:       particleUniforms,
       vertexShader:   particleVertexShader(),
       fragmentShader: particleFragmentShader()
   });
-  mat.extensions.drawBuffers = true;
-  const particles = new THREE.Points( geometry, mat );
+  material.extensions.drawBuffers = true;
+  const particles = new THREE.Points( geometry, material );
   particles.matrixAutoUpdate = false;
   particles.updateMatrix();
 
@@ -204,45 +151,42 @@ function getCameraConstant( camera: any) {
   return window.innerHeight / ( Math.tan( THREE.Math.DEG2RAD * 0.5 * camera.fov ) / camera.zoom );
 }
 
-function fillTextures( texturePosition:  any, textureVelocity:  any, textureAnglePhi: any, textureAngleTheta: any, volume: number ) {
+function fillTextures( texturePosition:  any, textureVelocity:  any, angleArray: any) {
 
   const posArray = texturePosition.image.data;
   const velArray = textureVelocity.image.data;
-  const phiArr = textureAnglePhi.image.data;
-  const thetaArr = textureAngleTheta.image.data;
+  const angArr = angleArray.image.data;
 
-  const getRandomInt = (min, max) =>  Math.floor(Math.random() * (max - min)) + min;
+  const radius = 50;
 
-  const radius = 100;
+  const RADIAN = Math.PI / 180;
 
   for ( let k = 0, i = 0, kl = posArray.length; k < kl; k += 4, i++) {
-    const phi = getRandomInt(0, 360);
-    const theta = getRandomInt(0, 360);
+    // angles
+    const phi = 360 * Math.random() * RADIAN;
+    const theta = (180 * Math.random() - 90) * RADIAN;
+
     // Position
     let x, y, z;
-    x = Math.cos(phi) * Math.cos(theta) * radius;
-    y = Math.cos(phi) * Math.sin(theta) * radius;
-    z = Math.sin(phi) * radius;
+    x = radius * Math.cos(theta) * Math.sin(phi);
+		y = radius * Math.sin(theta);
+		z = radius * Math.cos(theta) * Math.cos(phi);
 
     posArray[ k + 0 ] = x;
     posArray[ k + 1 ] = y;
     posArray[ k + 2 ] = z;
     posArray[ k + 3 ] = i;
 
-    velArray[ k + 0 ] = Math.random();
-    velArray[ k + 1 ] = Math.random();
-    velArray[ k + 2 ] = Math.random();
+    velArray[ k + 0 ] = 0;
+    velArray[ k + 1 ] = 0;
+    velArray[ k + 2 ] = 0;
     velArray[ k + 3 ] = 0;
 
-    phiArr[ k + 0 ] = phi;
-    phiArr[ k + 1 ] = 0;
-    phiArr[ k + 2 ] = 0;
-    phiArr[ k + 3 ] = 0;
+    angArr[ k + 0 ] = phi;
+    angArr[ k + 1 ] = theta;
+    angArr[ k + 2 ] = 0;
+    angArr[ k + 3 ] = 0;
 
-    thetaArr[ k + 0 ] = theta;
-    thetaArr[ k + 1 ] = 0;
-    thetaArr[ k + 2 ] = 0;
-    thetaArr[ k + 3 ] = 0;
   }
 
 }
@@ -254,46 +198,7 @@ function onWindowResize() {
   particleUniforms.cameraConstant.value = getCameraConstant( camera );
 }
 
-const tickStar = (currentScale: frequencyToScaleData.PitchName, volume: number) => {
-
-  starGeometry.vertices.forEach((p: any) => {
-    p.velocity += p.acceleration;
-    p.z -= p.velocity;
-
-    p.x -= volume * 0.01 + 0.2;
-    p.y -= volume * 0.01 + 0.2;
-
-    if (p.z < -200) {
-      p.x = Math.random() * 600 - 300,
-      p.y = Math.random() * 600 - 300,
-      p.z = 200;
-      p.velocity = 0;
-    }
-  });
-  starGeometry.verticesNeedUpdate = true;
-
-  starMaterial.size = volume * 0.02;
-
-  if(currentScale.pitch.indexOf('C') !== -1) {
-    starMaterial.color.set(0xff2d2d)
-  } else if (currentScale.pitch.indexOf('D') !== -1) {
-    starMaterial.color.set(0xFCAF22)
-  } else if (currentScale.pitch.indexOf('E') !== -1) {
-    starMaterial.color.set(0xECE130)
-  } else if (currentScale.pitch.indexOf('F') !== -1) {
-    starMaterial.color.set(0x33cc00)
-  } else if (currentScale.pitch.indexOf('G') !== -1) {
-    starMaterial.color.set(0x00ccff)
-  } else if (currentScale.pitch.indexOf('A') !== -1) {
-    starMaterial.color.set(0xE22FAA)
-  } else if (currentScale.pitch.indexOf('B') !== -1) {
-    starMaterial.color.set(0xffffff)
-  }
-
-}
-
-
-export function animate(currentScale: any, volume: number) {
+export function animate() {
 
   gpuCompute.compute();
 
@@ -351,37 +256,35 @@ export function dynamicValuesChanger(currentScale: any, volume: number) {
   }
 }
 
-// export const animate = (currentScale: frequencyToScaleData.PitchName, volume: number) => {
-  // sphere.rotation.x += 0.01;
-  // sphere.rotation.z += 0.01;
+function setParticlesAngle() {
+  return `
+    // save original angles per particle
+    void main() {
+        vec2 uv = gl_FragCoord.xy / resolution.xy;
+        vec4 angleData = texture2D( textureAngles, uv );
+        vec2 angles = angleData.xy;
+        float phi = angleData.x;
+        float theta = angleData.y;
 
-  // camera.rotation.z -= 0.01;
-
-  // tickStar(currentScale, volume);
-
-  // renderer.render( scene, camera );
-
-//};
+        gl_FragColor = vec4(phi, theta, 0.0, 0.0);
+    }
+  `
+}
 
 function computeShaderPosition() {
   return `
-    #define delta ( 1.0 / 1.0 )
-
-    uniform float volume;
-
-    varying vec2 vUv;
-
     void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 tmpPos = texture2D( texturePosition, uv );
         vec3 pos = tmpPos.xyz;
+        float index = tmpPos.w;
         vec4 tmpVel = texture2D( textureVelocity, uv );
         vec3 vel = tmpVel.xyz;
 
-        // Dynamics
-        pos += vel;
+        // update
+        pos = vel;
 
-        gl_FragColor = vec4(pos, tmpPos.w);
+        gl_FragColor = vec4(pos, index);
     }
   `
 }
@@ -390,44 +293,131 @@ function computeShaderVelocity() {
   return `
     #include <common>
 
-    uniform sampler2D anglePhi;
-    uniform sampler2D angleTheta;
-
     uniform float volume;
 
-    varying vec2 vUv;
+    //
+    // Description : Array and textureless GLSL 2D/3D/4D simplex
+    //               noise functions.
+    //      Author : Ian McEwan, Ashima Arts.
+    //  Maintainer : stegu
+    //     Lastmod : 20110822 (ijm)
+    //     License : Copyright (C) 2011 Ashima Arts. All rights reserved.
+    //               Distributed under the MIT License. See LICENSE file.
+    //               https://github.com/ashima/webgl-noise
+    //               https://github.com/stegu/webgl-noise
+    //
 
-    //const float PI = 3.14159265358979;
+    vec3 mod289(vec3 x) {
+      return x - floor(x * (1.0 / 289.0)) * 289.0;
+    }
+
+    vec4 mod289(vec4 x) {
+      return x - floor(x * (1.0 / 289.0)) * 289.0;
+    }
+
+    vec4 permute(vec4 x) {
+        return mod289(((x*34.0)+1.0)*x);
+    }
+
+    vec4 taylorInvSqrt(vec4 r)
+    {
+      return 1.79284291400159 - 0.85373472095314 * r;
+    }
+
+    float snoise(vec3 v)
+      {
+      const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+      const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+
+    // First corner
+      vec3 i  = floor(v + dot(v, C.yyy) );
+      vec3 x0 =   v - i + dot(i, C.xxx) ;
+
+    // Other corners
+      vec3 g = step(x0.yzx, x0.xyz);
+      vec3 l = 1.0 - g;
+      vec3 i1 = min( g.xyz, l.zxy );
+      vec3 i2 = max( g.xyz, l.zxy );
+
+      //   x0 = x0 - 0.0 + 0.0 * C.xxx;
+      //   x1 = x0 - i1  + 1.0 * C.xxx;
+      //   x2 = x0 - i2  + 2.0 * C.xxx;
+      //   x3 = x0 - 1.0 + 3.0 * C.xxx;
+      vec3 x1 = x0 - i1 + C.xxx;
+      vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+      vec3 x3 = x0 - D.yyy;      // -1.0+3.0*C.x = -0.5 = -D.y
+
+    // Permutations
+      i = mod289(i);
+      vec4 p = permute( permute( permute(
+                i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+              + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+              + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+    // Gradients: 7x7 points over a square, mapped onto an octahedron.
+    // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+      float n_ = 0.142857142857; // 1.0/7.0
+      vec3  ns = n_ * D.wyz - D.xzx;
+
+      vec4 j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
+
+      vec4 x_ = floor(j * ns.z);
+      vec4 y_ = floor(j - 7.0 * x_ );    // mod(j,N)
+
+      vec4 x = x_ *ns.x + ns.yyyy;
+      vec4 y = y_ *ns.x + ns.yyyy;
+      vec4 h = 1.0 - abs(x) - abs(y);
+
+      vec4 b0 = vec4( x.xy, y.xy );
+      vec4 b1 = vec4( x.zw, y.zw );
+
+      //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+      //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+      vec4 s0 = floor(b0)*2.0 + 1.0;
+      vec4 s1 = floor(b1)*2.0 + 1.0;
+      vec4 sh = -step(h, vec4(0.0));
+
+      vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+      vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+      vec3 p0 = vec3(a0.xy,h.x);
+      vec3 p1 = vec3(a0.zw,h.y);
+      vec3 p2 = vec3(a1.xy,h.z);
+      vec3 p3 = vec3(a1.zw,h.w);
+
+    //Normalise gradients
+      vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+      p0 *= norm.x;
+      p1 *= norm.y;
+      p2 *= norm.z;
+      p3 *= norm.w;
+
+    // Mix final noise value
+      vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+      m = m * m;
+      return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                    dot(p2,x2), dot(p3,x3) ) );
+    }
 
     void main() {
+      vec2 uv = gl_FragCoord.xy / resolution.xy;
+      float idParticle = uv.y * resolution.x + uv.x;
+      vec4 tmpPos = texture2D( texturePosition, uv );
+      vec3 pos = tmpPos.xyz;
+      vec4 tmpVel = texture2D( textureVelocity, uv );
+      vec3 vel = tmpVel.xyz;
 
+      vec4 angleData = texture2D( textureAngles, uv );
+      vec2 angles = angleData.xy;
+      float phi = angleData.x;
+      float theta = angleData.y;
 
-        vec2 uv = gl_FragCoord.xy / resolution.xy;
-        float idParticle = uv.y * resolution.x + uv.x;
-        vec4 tmpPos = texture2D( texturePosition, uv );
-        vec3 pos = tmpPos.xyz;
-        vec4 tmpVel = texture2D( textureVelocity, uv );
-        vec3 vel = tmpVel.xyz;
-        vec4 phiAngle = texture2D( anglePhi, uv );
-        float phi = phiAngle.x;
-        vec4 thetaAngle = texture2D( angleTheta, uv );
-        float theta = thetaAngle.x;
-        float index = tmpPos.w;
+      // update sphere with volume as radius
+      vel.x = volume * cos(theta) * sin(phi);
+      vel.y = volume * sin(theta);
+      vel.z = volume * cos(theta) * cos(phi);
 
-        // float t = cos(index);
-        // pos.x = pos.x + pos.x * t;
-        // pos.y = pos.y + pos.y * t;
-        // pos.z = pos.z + pos.z * t;
-        // vel -= pos;
-
-        float p = pos.x * PI / 180.0;
-        float t = ((pos.y - 180.0) * PI) / 180.0;
-
-        vel.x = sin(-volume * cos(p) * cos(t));
-        vel.y = sin(volume * sin(p));
-        vel.z = sin(volume * cos(p) * sin(t));
-
-        gl_FragColor = vec4( vel, tmpPos.w );
+      gl_FragColor = vec4( vel, 0.0 );
     }
   `
 }
@@ -439,7 +429,6 @@ function particleVertexShader() {
     uniform float cameraConstant;
     uniform vec3 ambient;
     varying vec4 vColor;
-    varying vec2 vUv;
 
     void main() {
         vec4 posTemp = texture2D( texturePosition, uv );
@@ -448,8 +437,6 @@ function particleVertexShader() {
 
         vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
         gl_PointSize = 0.5 * cameraConstant / ( - mvPosition.z );
-
-        vUv = uv;
 
         gl_Position = projectionMatrix * mvPosition;
     }
@@ -460,6 +447,7 @@ function particleFragmentShader() {
   return `
     varying vec4 vColor;
     void main() {
+        // point shape to a circle
         float f = length( gl_PointCoord - vec2( 0.5, 0.5 ) );
         if ( f > 0.1 ) {
             discard;

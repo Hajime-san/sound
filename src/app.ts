@@ -17,14 +17,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     Graphics.init();
 
-    Graphics.initPosition(analyze.volume);
-
-    Graphics.initComputeRenderer(analyze.normalizedHz, analyze.volume);
-
     const tick = () => {
       Gui.tick(analyze.currentScale, analyze.volume, bpm);
       Graphics.dynamicValuesChanger(analyze.currentScale, analyze.volume);
-      Graphics.animate(analyze.currentScale, analyze.volume);
+      Graphics.animate();
       requestAnimationFrame(tick);
     }
 
