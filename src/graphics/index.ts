@@ -43,11 +43,7 @@ export const init = () => {
   // Can be changed dynamically
   effectController = {
     volume: 0.0,
-    ambient: {
-      r: 0,
-      g: 0,
-      b: 0
-    }
+    ambient: [1.0,  0.0,  0.0]
   }
 
   initComputeRenderer();
@@ -80,11 +76,7 @@ export function initComputeRenderer() {
 
   velocityUniforms.volume = { value: 0.0 };
   velocityUniforms.ambient = {
-    value: {
-      r: 0,
-      g: 0,
-      b: 0
-    }
+    value: [1.0,  0.0,  0.0]
   };
 
   const error = gpuCompute.init();
@@ -125,11 +117,7 @@ export function initPosition() {
     textureVelocity: { value: null },
     cameraConstant: { value: getCameraConstant( camera ) },
     ambient: {
-      value: {
-        r: 0,
-        g: 0,
-        b: 0
-      }
+      value: [0.0, 0.0, 0.0]
     }
   };
 
@@ -208,52 +196,53 @@ export function animate() {
 }
 
 export function dynamicValuesChanger(currentScale: any, volume: number) {
-  velocityUniforms[ 'volume' ].value = volume;
-  // particleUniforms.ambient.value = normalizedHz;
+  velocityUniforms.volume.value = volume;
+
 
   if(currentScale.pitch.indexOf('C') !== -1) {
     particleUniforms.ambient.value = {
-      r: 0,
-      g: 1.0,
-      b: 0.59
+      r: 227,
+      g: 33,
+      b: 30
     }
   } else if (currentScale.pitch.indexOf('D') !== -1) {
     particleUniforms.ambient.value = {
-      r: 0.11,
-      g: 0.97,
-      b: 0.56
+      r: 218,
+      g: 177,
+      b: 28
     }
   } else if (currentScale.pitch.indexOf('E') !== -1) {
     particleUniforms.ambient.value = {
-      r: 0.16,
-      g: 0.83,
-      b: 0.56
+      r: 62,
+      g: 169,
+      b: 53
     }
   } else if (currentScale.pitch.indexOf('F') !== -1) {
     particleUniforms.ambient.value = {
-      r: 0.29,
-      g: 1.0,
-      b: 0.4
+      r: 188,
+      g: 131,
+      b: 63
     }
   } else if (currentScale.pitch.indexOf('G') !== -1) {
     particleUniforms.ambient.value = {
-      r: 0.53,
-      g: 1.0,
-      b: 0.5
+      r: 2,
+      g: 175,
+      b: 205
     }
   } else if (currentScale.pitch.indexOf('A') !== -1) {
     particleUniforms.ambient.value = {
-      r: 0.89,
-      g: 0.76,
-      b: 0.54
+      r: 185,
+      g: 86,
+      b: 133
     }
   } else if (currentScale.pitch.indexOf('B') !== -1) {
     particleUniforms.ambient.value = {
-      r: 1.0,
-      g: 1.0,
-      b: 1.0
+      r: 218,
+      g: 162,
+      b: 175
     }
   }
+
 }
 
 function setParticlesAngle() {
@@ -430,10 +419,18 @@ function particleVertexShader() {
     uniform vec3 ambient;
     varying vec4 vColor;
 
+    vec3 colorConvert(vec3 c) {
+      c.r = c.r / 255.0;
+      c.g = c.g / 255.0;
+      c.b = c.b / 255.0;
+      return c;
+    }
+
     void main() {
         vec4 posTemp = texture2D( texturePosition, uv );
         vec3 pos = posTemp.xyz;
-        vColor = vec4( ambient.r, ambient.g, ambient.b, 1.0 );
+        vec3 currentScale = ambient;
+        vColor = vec4( colorConvert(currentScale), 1.0 );
 
         vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
         gl_PointSize = 0.5 * cameraConstant / ( - mvPosition.z );
@@ -446,6 +443,7 @@ function particleVertexShader() {
 function particleFragmentShader() {
   return `
     varying vec4 vColor;
+
     void main() {
         // point shape to a circle
         float f = length( gl_PointCoord - vec2( 0.5, 0.5 ) );
