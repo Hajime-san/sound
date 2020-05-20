@@ -2,7 +2,7 @@ import * as THREE from 'three';
 // import { OrbitControls } from 'three/examples/js/controls/OrbitControls';
 import { GPUComputationRenderer, GPUComputationRendererVariable } from 'gpucomputationrender-three';
 
-const WIDTH = 256;
+const WIDTH = 512;
 const PARTICLES = WIDTH * WIDTH;
 
 let renderer: any,
@@ -454,9 +454,9 @@ function computeShaderVelocity() {
 
       // update sphere with volume as radius
       vec3 newPos = vec3(0.0);
-      newPos.x = (volume * (2.0 * snoise( vec4( 0.1 * newPos.xyz, 7.225 + 0.5 * time ) ))) * cos(theta) * sin(phi);
-      newPos.y = (volume * (2.0 * snoise( vec4( 0.1 * newPos.xyz, 1.035 + 0.5 * time ) )))  * sin(theta);
-      newPos.z = (volume * (2.0 * snoise( vec4( 0.1 * newPos.xyz, 3.669 + 0.5 * time ) )))  * cos(theta) * cos(phi);
+      newPos.x = (80.0 + ( (volume * 0.2 ) * snoise( vec4( 0.05 * pos.xyz, 3.117 + time ) ))) * cos(theta) * sin(phi);
+      newPos.y = (80.0 + ( (volume * 0.2 ) * snoise( vec4( 0.05 * pos.xyz, 1.854 + time ) ))) * sin(theta);
+      newPos.z = (80.0 + ( (volume * 0.2 ) * snoise( vec4( 0.05 * pos.xyz, 0.243 + time ) ))) * cos(theta) * cos(phi);
 
       vel = newPos;
 
