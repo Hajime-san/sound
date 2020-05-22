@@ -1,9 +1,13 @@
-import * as THREE from 'three';
-// import { OrbitControls } from 'three/examples/js/controls/OrbitControls';
-// import { GPUComputationRenderer, GPUComputationRendererVariable } from 'gpucomputationrender-three';
+import { PitchName } from '../frequencyToScale';
 
+import * as THREE from 'three';
 import { GPUComputationRenderer, Variable } from 'three/examples/jsm/misc/GPUComputationRenderer';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+// import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+// import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+// import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
+// import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+// import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader';
 
 const WIDTH = 512;
 const PARTICLES = WIDTH * WIDTH;
@@ -14,12 +18,16 @@ let renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
     container: HTMLElement,
-    controls: OrbitControls,
     rot: number,
     time: number,
     delta: THREE.Clock;
 
-let gpuCompute: GPUComputationRenderer;
+let controls: OrbitControls,
+    gpuCompute: GPUComputationRenderer;
+    // renderScene: RenderPass,
+    // effectFXAA: ShaderPass,
+    // bloomPass: UnrealBloomPass,
+    // composer: EffectComposer;
 
 interface NestedObject {
   [prop: string]: any;
@@ -50,8 +58,37 @@ export const init = () => {
   renderer.setPixelRatio( window.devicePixelRatio );
   renderer.setSize( window.innerWidth, window.innerHeight );
   container.appendChild( renderer.domElement );
-  // controls = new OrbitControls( camera, renderer.domElement );
+  controls = new OrbitControls( camera, renderer.domElement );
+
+  // Post processing
+  // var objBack = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 1), new THREE.MeshBasicMaterial({color: "red", wireframe: false}));
+  // objBack.position.z = -2.25;
+  // objBack.layers.enable(1);
+  // scene.add(objBack);
+
   window.addEventListener( 'resize', onWindowResize, false );
+
+  // Post processing
+  // renderScene = new RenderPass( scene, camera );
+  // effectFXAA = new ShaderPass( FXAAShader );
+  // effectFXAA.uniforms.resolution.value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+
+  // bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+  // bloomPass.threshold = 0.21;
+  // bloomPass.strength = 1.2;
+  // bloomPass.radius = 0.55;
+  // bloomPass.renderToScreen = true;
+
+  // composer = new EffectComposer( renderer );
+  // composer.setSize( window.innerWidth, window.innerHeight );
+
+  // composer.addPass( renderScene );
+  // composer.addPass( effectFXAA );
+  // composer.addPass( bloomPass );
+
+  // renderer.outputEncoding = THREE.sRGBEncoding;
+
+  // renderer.toneMappingExposure = Math.pow( 0.9, 4.0 );
 
   // Can be changed dynamically
   effectController = {
@@ -123,8 +160,8 @@ export function initPosition() {
   }
 
 
-  geometry.addAttribute('position', new THREE.BufferAttribute( positions, 3 ) );
-  geometry.addAttribute('uv', new THREE.BufferAttribute( uvs, 2 ) );
+  geometry.setAttribute('position', new THREE.BufferAttribute( positions, 3 ) );
+  geometry.setAttribute('uv', new THREE.BufferAttribute( uvs, 2 ) );
 
   particleUniforms = {
     texturePosition: { value: null },
@@ -150,11 +187,11 @@ export function initPosition() {
 
 }
 
-function getCameraConstant( camera: any) {
+function getCameraConstant(camera: THREE.PerspectiveCamera) {
   return window.innerHeight / ( Math.tan( THREE.MathUtils.DEG2RAD * 0.5 * camera.fov ) / camera.zoom );
 }
 
-function fillTextures( texturePosition:  any, textureVelocity:  any, angleArray: any) {
+function fillTextures( texturePosition: THREE.DataTexture, textureVelocity: THREE.DataTexture, angleArray: THREE.DataTexture) {
 
   const posArray = texturePosition.image.data;
   const velArray = textureVelocity.image.data;
@@ -216,12 +253,22 @@ export function animate() {
   camera.position.z = 150 * Math.cos(radian);
   camera.lookAt(new THREE.Vector3(0, 0, 0));
 
+  // Post processing
+  // renderer.autoClear = false;
+  // renderer.clear();
+
+  // camera.layers.set(1);
+  // composer.render();
+
+  // renderer.clearDepth();
+  // camera.layers.set(0);
+
   renderer.render( scene, camera );
 }
 
-export function dynamicValuesChanger(currentScale: any, volume: number) {
-  velocityUniforms.volume.value = volume;
+export function dynamicValuesChanger(currentScale: PitchName, volume: number) {
 
+  velocityUniforms.volume.value = volume;
 
   if(currentScale.pitch.indexOf('C') !== -1) {
     particleUniforms.ambient.value = {
