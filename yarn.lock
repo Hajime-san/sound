@@ -1548,11 +1548,6 @@ globby@^6.1.0:
     pify "^2.0.0"
     pinkie-promise "^2.0.0"
 
-gpucomputationrender-three@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/gpucomputationrender-three/-/gpucomputationrender-three-2.0.0.tgz#73e4f7b4329def9b74e4703a63a29abc65b197a2"
-  integrity sha512-GK+0QfBl3Qu/7pscQnQugvGprpeZ9n1PsHZBMTcIXKK5graazfHPInKnODiD3dY0+8ahNHV0PksEjbTm+0fHkQ==
-
 graceful-fs@^4.1.11, graceful-fs@^4.1.15, graceful-fs@^4.1.2:
   version "4.2.3"
   resolved "https://registry.yarnpkg.com/graceful-fs/-/graceful-fs-4.2.3.tgz#4a12ff1b60376ef09862c2093edd908328be8423"
