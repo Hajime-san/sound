@@ -1,35 +1,42 @@
 import * as THREE from 'three';
 // import { OrbitControls } from 'three/examples/js/controls/OrbitControls';
-import { GPUComputationRenderer, GPUComputationRendererVariable } from 'gpucomputationrender-three';
+// import { GPUComputationRenderer, GPUComputationRendererVariable } from 'gpucomputationrender-three';
+
+import { GPUComputationRenderer, Variable } from 'three/examples/jsm/misc/GPUComputationRenderer';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 const WIDTH = 512;
 const PARTICLES = WIDTH * WIDTH;
 
-let renderer: any,
-    renderTarget: any,
-    geometry: any,
-    scene: any,
-    camera: any,
-    container: any,
-    controls: any,
+let renderer: THREE.WebGLRenderer,
+    geometry: THREE.BufferGeometry,
+    material: THREE.ShaderMaterial,
+    scene: THREE.Scene,
+    camera: THREE.PerspectiveCamera,
+    container: HTMLElement,
+    controls: OrbitControls,
     rot: number,
     time: number,
-    delta: any;
+    delta: THREE.Clock;
 
 let gpuCompute: GPUComputationRenderer;
 
-let particleUniforms: any,
-    positionVariable: GPUComputationRendererVariable,
-    velocityVariable: GPUComputationRendererVariable,
-    anglesVariable: GPUComputationRendererVariable,
-    velocityUniforms: any,
-    anglesUniforms: any,
-    effectController: any;
+interface NestedObject {
+  [prop: string]: any;
+}
+
+let particleUniforms: NestedObject,
+    positionVariable: Variable,
+    velocityVariable: Variable,
+    anglesVariable: Variable,
+    velocityUniforms: NestedObject,
+    anglesUniforms: NestedObject,
+    effectController: NestedObject;
 
 
 
 export const init = () => {
-  container = document.getElementById( 'sound' ) as HTMLElement;
+  container = document.getElementById('sound');
   document.body.appendChild( container );
   camera = new THREE.PerspectiveCamera( 100, window.innerWidth / window.innerHeight, 5, 15000 );
   camera.position.y = 0;
@@ -72,10 +79,10 @@ export function initComputeRenderer() {
   velocityVariable = gpuCompute.addVariable( "textureVelocity", computeShaderVelocity(), dtVelocity );
   positionVariable = gpuCompute.addVariable( "texturePosition", computeShaderPosition(), dtPosition );
   anglesVariable = gpuCompute.addVariable( "textureAngles", setParticlesAngle(), dtAngles );
-
   gpuCompute.setVariableDependencies( velocityVariable, [ positionVariable, velocityVariable, anglesVariable ] );
   gpuCompute.setVariableDependencies( positionVariable, [ positionVariable, velocityVariable, anglesVariable ]  );
   gpuCompute.setVariableDependencies( anglesVariable, [ positionVariable, velocityVariable, anglesVariable ]  );
+
 
   velocityUniforms = velocityVariable.material.uniforms;
   anglesUniforms = anglesVariable.material.uniforms;
@@ -133,6 +140,7 @@ export function initPosition() {
       vertexShader:   particleVertexShader(),
       fragmentShader: particleFragmentShader()
   });
+
   material.extensions.drawBuffers = true;
   const particles = new THREE.Points( geometry, material );
   particles.matrixAutoUpdate = false;
@@ -143,7 +151,7 @@ export function initPosition() {
 }
 
 function getCameraConstant( camera: any) {
-  return window.innerHeight / ( Math.tan( THREE.Math.DEG2RAD * 0.5 * camera.fov ) / camera.zoom );
+  return window.innerHeight / ( Math.tan( THREE.MathUtils.DEG2RAD * 0.5 * camera.fov ) / camera.zoom );
 }
 
 function fillTextures( texturePosition:  any, textureVelocity:  any, angleArray: any) {
@@ -197,8 +205,8 @@ export function animate() {
 
   gpuCompute.compute();
 
-  particleUniforms.texturePosition.value = gpuCompute.getCurrentRenderTarget( positionVariable ).texture;
-  particleUniforms.textureVelocity.value = gpuCompute.getCurrentRenderTarget( velocityVariable ).texture;
+  particleUniforms.texturePosition.value = gpuCompute.getCurrentRenderTarget( positionVariable );
+  particleUniforms.textureVelocity.value = gpuCompute.getCurrentRenderTarget( velocityVariable );
   time += delta.getDelta();
   velocityUniforms.time.value = time;
 

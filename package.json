@@ -7,7 +7,7 @@
   "license": "MIT",
   "devDependencies": {
     "gpucomputationrender-three": "^2.0.0",
-    "three": "0.100.0",
+    "three": "0.116.0",
     "ts-loader": "^7.0.1",
     "typescript": "^3.8.3",
     "webpack": "^4.43.0",
