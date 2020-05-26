@@ -1,1 +1,2 @@
-# sound-with-graphic
+### demo page
+https://hajime-san.github.io/sound/dist/
