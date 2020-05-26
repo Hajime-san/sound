@@ -7,18 +7,18 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     const context = new AudioContext();
 
-    const bpm = await BPM.analyzeAverageBMPthroughSong(context, './assets/cyborg.mp3');
+    const bpm = await BPM.analyzeAverageBMPthroughSong(context, './assets/bensound-summer.mp3');
 
     const analyze = new Scale.Analyze(context);
 
-    await analyze.analyzeScaleFromAudioFile('./assets/cyborg.mp3', 0);
+    await analyze.analyzeScaleFromAudioFile('./assets/bensound-summer.mp3', 0);
 
     // // await analyze.analyzeScaleFromMediaStream();
 
     Graphics.init();
 
     const tick = () => {
-      Gui.tick(analyze.currentScale, analyze.volume, bpm);
+      Gui.tick(analyze.currentScale, analyze.volume, bpm, analyze.lowerMaxFr, analyze.lowerAvgFr, analyze.upperMaxFr, analyze.upperAvgFr);
       Graphics.dynamicValuesChanger(analyze.currentScale, analyze.volume);
       Graphics.animate();
       requestAnimationFrame(tick);

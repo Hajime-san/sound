@@ -2,3 +2,4 @@ node_modules/
 
 dist/assets/*
 !dist/assets/korobeiniki.mp3
+!dist/assets/bensound-summer.mp3

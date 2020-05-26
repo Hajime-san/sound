@@ -4,6 +4,21 @@ import * as Fn from './util';
 // ealry create pitch name resource
 const frequencyToScale = frequencyToScaleData.create();
 
+const fractionate = (val: number, minVal: number, maxVal: number) => (val - minVal)/(maxVal - minVal);
+
+const modulate = (val: number, minVal: number, maxVal: number, outMin: number, outMax: number) => {
+  const fr = fractionate(val, minVal, maxVal);
+  const delta = outMax - outMin;
+  return outMin + (fr * delta);
+}
+
+const avg = (arr: Uint8Array) => {
+  const total = arr.reduce((sum, b) => sum + b );
+  return (total / arr.length);
+}
+
+const max = (arr: Uint8Array) => arr.reduce((a, b) =>  Math.max(a, b));
+
 export class Analyze {
   private context: AudioContext;
   tracks: MediaStreamTrack[];
@@ -11,6 +26,10 @@ export class Analyze {
   isStopAnalyze: boolean;
   private _currentScale: frequencyToScaleData.PitchName;
   private _volume: number;
+  private _lowerMaxFr: number;
+  private _lowerAvgFr: number;
+  private _upperMaxFr: number;
+  private _upperAvgFr: number;
   constructor(
     audioContext: AudioContext
     ) {
@@ -20,6 +39,10 @@ export class Analyze {
     this.isStopAnalyze = false;
     this._currentScale = { pitch: frequencyToScale[0].pitch, Hz: frequencyToScale[0].Hz };
     this._volume = 0;
+    this._lowerMaxFr = 0;
+    this._lowerAvgFr = 0;
+    this._upperMaxFr = 0;
+    this._upperAvgFr = 0;
   }
 
   // getter
@@ -29,6 +52,22 @@ export class Analyze {
 
   get volume() {
     return this._volume;
+  }
+
+  get lowerMaxFr() {
+    return this._lowerMaxFr;
+  }
+
+  get lowerAvgFr() {
+    return this._lowerAvgFr;
+  }
+
+  get upperMaxFr() {
+    return this._upperMaxFr;
+  }
+
+  get upperAvgFr() {
+    return this._upperAvgFr;
   }
 
   get normalizedHz() {
@@ -82,6 +121,22 @@ export class Analyze {
     return average;
   }
 
+  private getVariousVolumePeaks = (fourierVolumeArray: Uint8Array) => {
+    const lowerHalfArray = fourierVolumeArray.slice(0, (fourierVolumeArray.length / 2 ) - 1);
+    const upperHalfArray = fourierVolumeArray.slice((fourierVolumeArray.length / 2 ) - 1, fourierVolumeArray.length - 1);
+
+    const overallAvg = avg(fourierVolumeArray);
+    const lowerMax = max(lowerHalfArray);
+    const lowerAvg = avg(lowerHalfArray);
+    const upperMax = max(upperHalfArray);
+    const upperAvg = avg(upperHalfArray);
+
+    this._lowerMaxFr = lowerMax / lowerHalfArray.length;
+    this._lowerAvgFr = lowerAvg / lowerHalfArray.length;
+    this._upperMaxFr = upperMax / upperHalfArray.length;
+    this._upperAvgFr = upperAvg / upperHalfArray.length;
+  }
+
   // analyze scale at real time
   private tickAnalyze(analyser: AnalyserNode, bufferLength: Float32Array, currentHz: number, dBrange: number, fourierVolumeArray: Uint8Array, minVolume?: number) {
     // default min volume
@@ -96,6 +151,7 @@ export class Analyze {
     // analyze volume
     analyser.getByteFrequencyData(fourierVolumeArray);
     const average = this.getAverageVolume(fourierVolumeArray);
+
 
     const getNormalization = (r: number) =>  (bufferLength[r] - analyser.maxDecibels) / dBrange * -1;
 
@@ -131,10 +187,10 @@ export class Analyze {
       }
     }
 
-    const tick = () => {
-      if(minVolume === undefined) {
-        return;
-      }
+    const update = () => {
+      // if(minVolume === undefined) {
+      //   return;
+      // }
       if(average > minVolume) {
         this._currentScale = frequencyToScale[extendedRange];
         this._volume = average;
@@ -143,7 +199,8 @@ export class Analyze {
 
     requestAnimationFrame(()=> {
       this.tickAnalyze(analyser, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume);
-      tick();
+      this.getVariousVolumePeaks(fourierVolumeArray);
+      update();
     });
   }
 
