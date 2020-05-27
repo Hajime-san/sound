@@ -4,7 +4,7 @@ import * as Fn from './util';
 // ealry create pitch name resource
 const frequencyToScale = frequencyToScaleData.create();
 
-const fractionate = (val: number, minVal: number, maxVal: number) => (val - minVal)/(maxVal - minVal);
+const fractionate = (val: number, minVal: number, maxVal: number) => (val - minVal) / (maxVal - minVal);
 
 const modulate = (val: number, minVal: number, maxVal: number, outMin: number, outMax: number) => {
   const fr = fractionate(val, minVal, maxVal);
@@ -26,6 +26,7 @@ export class Analyze {
   isStopAnalyze: boolean;
   private _currentScale: frequencyToScaleData.PitchName;
   private _volume: number;
+  private _index: number;
   private _lowerMaxFr: number;
   private _lowerAvgFr: number;
   private _upperMaxFr: number;
@@ -39,6 +40,7 @@ export class Analyze {
     this.isStopAnalyze = false;
     this._currentScale = { pitch: frequencyToScale[0].pitch, Hz: frequencyToScale[0].Hz };
     this._volume = 0;
+    this._index = 0;
     this._lowerMaxFr = 0;
     this._lowerAvgFr = 0;
     this._upperMaxFr = 0;
@@ -71,13 +73,8 @@ export class Analyze {
   }
 
   get normalizedHz() {
-    let normal: number;
-
-    const lowestHz = frequencyToScale[0].Hz
-    const heighestHz = frequencyToScale[frequencyToScale.length - 1].Hz;
-
-    normal = (this._currentScale.Hz - lowestHz) / (heighestHz - lowestHz);
-    return normal;
+    const MIN = 0;
+    return (this._index - MIN) / ((frequencyToScale.length - 1) - MIN);
   }
 
   // initialize media devices
@@ -192,6 +189,7 @@ export class Analyze {
       //   return;
       // }
       if(average > minVolume) {
+        this._index = extendedRange;
         this._currentScale = frequencyToScale[extendedRange];
         this._volume = average;
       }

@@ -5,6 +5,8 @@ import * as Graphics from './graphics';
 
 document.addEventListener('DOMContentLoaded', async ()=>{
 
+    Graphics.init();
+
     const context = new AudioContext();
 
     const bpm = await BPM.analyzeAverageBMPthroughSong(context, './assets/bensound-summer.mp3');
@@ -15,10 +17,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     // // await analyze.analyzeScaleFromMediaStream();
 
-    Graphics.init();
-
     const tick = () => {
-      Gui.tick(analyze.currentScale, analyze.volume, bpm, analyze.lowerMaxFr, analyze.lowerAvgFr, analyze.upperMaxFr, analyze.upperAvgFr);
+      Gui.tick(analyze.currentScale, analyze.normalizedHz, analyze.volume, bpm, analyze.lowerMaxFr, analyze.lowerAvgFr, analyze.upperMaxFr, analyze.upperAvgFr);
       Graphics.dynamicValuesChanger(analyze.currentScale, analyze.volume);
       Graphics.animate();
       requestAnimationFrame(tick);
