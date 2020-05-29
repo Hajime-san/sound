@@ -135,7 +135,7 @@ export class Analyze {
   }
 
   // analyze scale at real time
-  private tickAnalyze(analyser: AnalyserNode, bufferLength: Float32Array, currentHz: number, dBrange: number, fourierVolumeArray: Uint8Array, minVolume?: number) {
+  private tickAnalyze(analyser: AnalyserNode, bufferArray: Float32Array, currentkiloHz: number, dBrange: number, fourierVolumeArray: Uint8Array, minVolume?: number) {
     // default min volume
     const DEFAULT_MIN_VOLUME = 10;
 
@@ -143,43 +143,47 @@ export class Analyze {
       minVolume = DEFAULT_MIN_VOLUME;
     }
 
-    analyser.getFloatFrequencyData(bufferLength);
+    analyser.getFloatFrequencyData(bufferArray);
 
     // analyze volume
     analyser.getByteFrequencyData(fourierVolumeArray);
     const average = this.getAverageVolume(fourierVolumeArray);
 
+    const getNormalization = (r: number) =>  (bufferArray[r] - analyser.maxDecibels) / dBrange * -1;
 
-    const getNormalization = (r: number) =>  (bufferLength[r] - analyser.maxDecibels) / dBrange * -1;
 
     let extendedRange = 0;
     for (let range = 0,
             total = dBrange,
             normalized;
-            range < bufferLength.length;
+            range < bufferArray.length;
             range++
         )
       normalized = getNormalization(range),
       total > normalized && (total = normalized, extendedRange = range);
 
-    for (let incrementHz = 0; incrementHz < frequencyToScale.length; incrementHz++) {
-      const convertkHzToHz = extendedRange * currentHz;
-      const lastHz = frequencyToScale[incrementHz].Hz;
-      const overflowedIndex = incrementHz + 1;
-      const overflowedHz = frequencyToScale[overflowedIndex].Hz;
+    for (let index = 0; index < frequencyToScale.length; index++) {
+      const convertkHzToHz = extendedRange * currentkiloHz;
+      const currentHz = frequencyToScale[index].Hz;
+      const nextIndex = index + 1;
+      const nextHz = frequencyToScale[nextIndex].Hz;
 
+      // lowest pitch
       if (convertkHzToHz <= frequencyToScale[0].Hz) {
         extendedRange = 0;
         break;
       }
+      // highest pitch
       if (convertkHzToHz >= frequencyToScale[frequencyToScale.length - 1].Hz) {
         extendedRange = frequencyToScale.length - 1;
         break;
       }
-      if (convertkHzToHz >= lastHz && overflowedHz >= convertkHzToHz) {
-        extendedRange = Math.abs(convertkHzToHz - lastHz) > Math.abs(convertkHzToHz - overflowedHz)
-                      ? overflowedIndex
-                      : incrementHz;
+
+      if (convertkHzToHz >= currentHz && nextHz >= convertkHzToHz) {
+
+        extendedRange = Math.abs(convertkHzToHz - currentHz) > Math.abs(convertkHzToHz - nextHz)
+                      ? nextIndex
+                      : index;
         break;
       }
     }
@@ -196,7 +200,7 @@ export class Analyze {
     }
 
     requestAnimationFrame(()=> {
-      this.tickAnalyze(analyser, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume);
+      this.tickAnalyze(analyser, bufferArray, currentkiloHz, dBrange, fourierVolumeArray, minVolume);
       this.getVariousVolumePeaks(fourierVolumeArray);
       update();
     });
@@ -213,9 +217,9 @@ export class Analyze {
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
-    const currentHz = this.context.sampleRate / analyserNode.fftSize;
+    const currentkiloHz = this.context.sampleRate / analyserNode.fftSize;
     const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
-    const bufferLength = new Float32Array(analyserNode.frequencyBinCount);
+    const bufferArray = new Float32Array(analyserNode.frequencyBinCount);
     const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
 
     // connect analyzer to audio buffer
@@ -224,7 +228,7 @@ export class Analyze {
     source.start(0);
 
     // start analyzing!!
-    this.tickAnalyze(analyserNode, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume);
+    this.tickAnalyze(analyserNode, bufferArray, currentkiloHz, dBrange, fourierVolumeArray, minVolume);
   }
 
   // sound from user's integrated media of device
@@ -244,7 +248,7 @@ export class Analyze {
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
-    const currentHz = this.context.sampleRate / analyserNode.fftSize;
+    const currentkiloHz = this.context.sampleRate / analyserNode.fftSize;
     const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
     const bufferLength = new Float32Array(analyserNode.frequencyBinCount);
     const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
@@ -253,6 +257,6 @@ export class Analyze {
     audioSourceNode.connect(analyserNode);
 
     // start analyzing!!
-    this.tickAnalyze(analyserNode, bufferLength, currentHz, dBrange, fourierVolumeArray, minVolume);
+    this.tickAnalyze(analyserNode, bufferLength, currentkiloHz, dBrange, fourierVolumeArray, minVolume);
   }
 }
