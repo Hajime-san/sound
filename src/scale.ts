@@ -4,6 +4,7 @@ import * as Fn from './util';
 // ealry create pitch name resource
 const frequencyToScale = frequencyToScaleData.create();
 
+
 const fractionate = (val: number, minVal: number, maxVal: number) => (val - minVal) / (maxVal - minVal);
 
 const modulate = (val: number, minVal: number, maxVal: number, outMin: number, outMax: number) => {
@@ -31,6 +32,7 @@ export class Analyze {
   private _lowerAvgFr: number;
   private _upperMaxFr: number;
   private _upperAvgFr: number;
+  private _limitedSpectrum = [...Array(frequencyToScale.length)].map((x)=> x = 0);
   constructor(
     audioContext: AudioContext
     ) {
@@ -50,6 +52,10 @@ export class Analyze {
   // getter
   get currentScale() {
     return this._currentScale;
+  }
+
+  get limitedSpectrum() {
+    return this._limitedSpectrum;
   }
 
   get volume() {
@@ -149,7 +155,22 @@ export class Analyze {
     analyser.getByteFrequencyData(fourierVolumeArray);
     const average = this.getAverageVolume(fourierVolumeArray);
 
+
     const getNormalization = (r: number) =>  (bufferArray[r] - analyser.maxDecibels) / dBrange * -1;
+
+    let exRange = 0;
+
+    for (let index = 0; index < fourierVolumeArray.byteLength / 2; index++) {
+      const current = index * this.context.sampleRate / analyser.fftSize;
+      if(exRange >= frequencyToScale.length - 1 ) {
+        exRange = 0;
+        break
+      }
+      if(frequencyToScale[exRange].Hz <= current && frequencyToScale[exRange + 1].Hz >= current) {
+        this._limitedSpectrum[exRange] = fourierVolumeArray[index];
+        exRange+= 1;
+      }
+    }
 
 
     let extendedRange = 0;
@@ -184,6 +205,7 @@ export class Analyze {
         extendedRange = Math.abs(convertkHzToHz - currentHz) > Math.abs(convertkHzToHz - nextHz)
                       ? nextIndex
                       : index;
+
         break;
       }
     }
@@ -217,6 +239,7 @@ export class Analyze {
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
+    analyserNode.fftSize = 32768;
     const currentkiloHz = this.context.sampleRate / analyserNode.fftSize;
     const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
     const bufferArray = new Float32Array(analyserNode.frequencyBinCount);
@@ -248,6 +271,7 @@ export class Analyze {
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
+    analyserNode.fftSize = 32768;
     const currentkiloHz = this.context.sampleRate / analyserNode.fftSize;
     const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
     const bufferLength = new Float32Array(analyserNode.frequencyBinCount);

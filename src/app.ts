@@ -15,9 +15,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     await analyze.analyzeScaleFromAudioFile('./assets/bensound-summer.mp3', 0);
 
-    // // await analyze.analyzeScaleFromMediaStream();
+    //await analyze.analyzeScaleFromMediaStream();
 
     const tick = () => {
+      //console.log(analyze.limitedSpectrum);
       Gui.tick(analyze.currentScale, analyze.normalizedHz, analyze.volume, bpm, analyze.lowerMaxFr, analyze.lowerAvgFr, analyze.upperMaxFr, analyze.upperAvgFr);
       Graphics.dynamicValuesChanger(analyze.currentScale, analyze.volume);
       Graphics.animate();
