@@ -1,4 +1,5 @@
 node_modules/
+src/NoteFrequencyChart/data.json
 
 dist/assets/*
 !dist/assets/korobeiniki.mp3

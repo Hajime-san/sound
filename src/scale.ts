@@ -1,8 +1,6 @@
-import * as frequencyToScaleData from './frequencyToScale';
 import * as Fn from './util';
-
-// ealry create pitch name resource
-const frequencyToScale = frequencyToScaleData.create();
+import { Scale } from './NoteFrequencyChart/';
+import NoteFrequencyChartData from './NoteFrequencyChart/data.json';
 
 
 const fractionate = (val: number, minVal: number, maxVal: number) => (val - minVal) / (maxVal - minVal);
@@ -21,7 +19,7 @@ const avg = (arr: Uint8Array) => {
 const max = (arr: Uint8Array) => arr.reduce((a, b) =>  Math.max(a, b));
 
 
-interface LimitedSpectrum extends frequencyToScaleData.PitchName {
+interface LimitedSpectrum extends Scale {
   power: number,
   cachedIndex: number,
 };
@@ -65,7 +63,7 @@ export class Analyze {
   }
 
   private initializeSpectrumArray () {
-    const array = frequencyToScale.map(((x: LimitedSpectrum) => {
+    const array = NoteFrequencyChartData.map(((x: LimitedSpectrum) => {
       x.power = 0;
       x.cachedIndex = 0;
       return x;
@@ -176,7 +174,7 @@ export class Analyze {
 
           break
         }
-        if(frequencyToScale[exRange].Hz <= current && frequencyToScale[exRange + 1].Hz >= current) {
+        if(NoteFrequencyChartData[exRange].Hz <= current && NoteFrequencyChartData[exRange + 1].Hz >= current) {
           this._analyzedAudioData.limitedSpectrum[exRange].cachedIndex = index;
           this._analyzedAudioData.limitedSpectrum[exRange].power = fourierVolumeArray[index];
           exRange+= 1;
@@ -196,20 +194,20 @@ export class Analyze {
     //   normalized = getNormalization(range),
     //   total > normalized && (total = normalized, extendedRange = range);
 
-    // for (let index = 0; index < frequencyToScale.length; index++) {
+    // for (let index = 0; index < NoteFrequencyChartData.length; index++) {
     //   const convertkHzToHz = extendedRange * currentkiloHz;
-    //   const currentHz = frequencyToScale[index].Hz;
+    //   const currentHz = NoteFrequencyChartData[index].Hz;
     //   const nextIndex = index + 1;
-    //   const nextHz = frequencyToScale[nextIndex].Hz;
+    //   const nextHz = NoteFrequencyChartData[nextIndex].Hz;
 
-    //   // lowest pitch
-    //   if (convertkHzToHz <= frequencyToScale[0].Hz) {
+    //   // lowest note
+    //   if (convertkHzToHz <= NoteFrequencyChartData[0].Hz) {
     //     extendedRange = 0;
     //     break;
     //   }
-    //   // highest pitch
-    //   if (convertkHzToHz >= frequencyToScale[frequencyToScale.length - 1].Hz) {
-    //     extendedRange = frequencyToScale.length - 1;
+    //   // highest note
+    //   if (convertkHzToHz >= NoteFrequencyChartData[NoteFrequencyChartData.length - 1].Hz) {
+    //     extendedRange = NoteFrequencyChartData.length - 1;
     //     break;
     //   }
 
@@ -229,7 +227,7 @@ export class Analyze {
       // }
       if(average > minVolume) {
         // this._index = extendedRange;
-        // this._currentScale = frequencyToScale[extendedRange];
+        // this._currentScale = NoteFrequencyChartData[extendedRange];
         this._analyzedAudioData.averageVolume = average;
       }
     }

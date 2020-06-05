@@ -13,9 +13,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     const analyze = new Scale.Analyze(context);
 
-    //await analyze.analyzeScaleFromAudioFile('./assets/bensound-summer.mp3', 0);
+    await analyze.analyzeScaleFromAudioFile('./assets/bensound-summer.mp3', 0);
 
-    await analyze.analyzeScaleFromMediaStream();
+    //await analyze.analyzeScaleFromMediaStream();
 
     const spectrumCanvas = document.getElementById('spectrum') as HTMLCanvasElement;
     const cw = window.innerWidth;
@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       ctx.clearRect(0,0,cw,ch)
       for (let index = 0; index < analyze.analyzedAudioData.limitedSpectrum.length; index++) {
         ctx.fillRect((cw / 2 - last) + width * 2 * index, 610, width / 2, - analyze.analyzedAudioData.limitedSpectrum[index].power);
-        const textWidth =  ctx.measureText(analyze.analyzedAudioData.limitedSpectrum[index].pitch).width;
-        ctx.fillText(analyze.analyzedAudioData.limitedSpectrum[index].pitch,  (cw / 2 - last) + width * 2 * index - textWidth / 4, 620)
+        const textWidth =  ctx.measureText(analyze.analyzedAudioData.limitedSpectrum[index].note).width;
+        ctx.fillText(analyze.analyzedAudioData.limitedSpectrum[index].note,  (cw / 2 - last) + width * 2 * index - textWidth / 4, 620)
       }
 
       requestAnimationFrame(tick);

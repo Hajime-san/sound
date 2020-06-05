@@ -1,7 +1,8 @@
+const fs = require('fs');
 
-export type PitchName = { pitch: string; Hz: number };
+let data = {};
 
-export const create = () => {
+const create = () => {
   const LOWEST_HZ = 27.5;
   const BASE_PITCH_NAMES = [
     'A',
@@ -22,10 +23,10 @@ export const create = () => {
   const STEP = 3;
   const STEP_OF_NEXT_HZ = -OCTAVE + STEP;
 
-  const PitchNames: Array<PitchName> = [];
+  const Scales = [];
 
   let newBaseHz = LOWEST_HZ;
-  const caluculateHz = (multiply: number) => {
+  const caluculateHz = (multiply) => {
     if (multiply === STEP_OF_NEXT_HZ) {
       newBaseHz = newBaseHz * 2;
     }
@@ -40,11 +41,11 @@ export const create = () => {
 
   let baseOctave = 0;
   let nextOctaveStep = 3;
-  let indexOfPitchNames = 0;
+  let indexOfScales = 0;
   let baseMultiplyNumber = 0;
   for (let i = 0; i < 88; i++) {
     const list = {
-      pitch: '',
+      note: '',
       Hz: 0
     }
 
@@ -53,9 +54,9 @@ export const create = () => {
       nextOctaveStep = i + STEP;
     }
 
-    // step octave pitch name
+    // step octave note name
     if((i % OCTAVE) === 0) {
-      indexOfPitchNames = 0;
+      indexOfScales = 0;
     }
 
     // step octave number
@@ -64,23 +65,35 @@ export const create = () => {
       baseMultiplyNumber = STEP_OF_NEXT_HZ;
     }
 
-    if(BASE_PITCH_NAMES[indexOfPitchNames].length === 2) {
-      const a = BASE_PITCH_NAMES[indexOfPitchNames].slice(0,1);
-      const b = BASE_PITCH_NAMES[indexOfPitchNames].slice(1,2);
-      list.pitch = `${a}${baseOctave}${b}`;
+    if(BASE_PITCH_NAMES[indexOfScales].length === 2) {
+      const a = BASE_PITCH_NAMES[indexOfScales].slice(0,1);
+      const b = BASE_PITCH_NAMES[indexOfScales].slice(1,2);
+      list.note = `${a}${baseOctave}${b}`;
     } else {
-      list.pitch = `${BASE_PITCH_NAMES[indexOfPitchNames]}${baseOctave}`;
+      list.note = `${BASE_PITCH_NAMES[indexOfScales]}${baseOctave}`;
     }
 
-    indexOfPitchNames++;
+    indexOfScales++;
 
     const currentHz = caluculateHz(baseMultiplyNumber);
     baseMultiplyNumber++
 
     list.Hz = currentHz;
 
-    PitchNames.push(list);
+    Scales.push(list);
   }
 
-  return PitchNames;
+  return Scales;
 }
+
+data = create();
+
+fs.writeFileSync('./src/NoteFrequencyChart/data.json',
+  JSON.stringify(data, null, 4),
+  {
+    encoding: 'utf-8',
+    replacer: null,
+  }
+);
+
+module.exports = data;

@@ -1,4 +1,5 @@
 const path = require('path');
+const NoteFrequencyChartData = require('./src/NoteFrequencyChart/createData');
 
 module.exports = {
     devServer: {
@@ -19,7 +20,14 @@ module.exports = {
         rules: [
             {
                 test:/\.ts$/,loader:'ts-loader'
-            }
+            },
+            {
+                test: /\.json$/,
+                type: "javascript/auto",
+                use: {
+                  loader: "json-loader",
+                },
+            },
         ]
     }
 }
