@@ -16,6 +16,10 @@
 		width: 100vw;
 		height: 100vh;
 	}
+	#spectrum {
+		width: 100vw;
+		height: 100vh;
+	}
 	.information {
 		position: fixed;
 		top: 30px;
@@ -36,18 +40,6 @@
 <body>
 	<!-- <p>Sound Demo</p> -->
 	<div class="information">
-		<dl>
-			<dt>Pitch:</dt>
-			<dd id="pitch"></dd>
-		</dl>
-		<dl>
-			<dt>Hz:</dt>
-			<dd id="hz"></dd>
-		</dl>
-		<dl>
-			<dt>NormalizedHz:</dt>
-			<dd id="normalizedHz"></dd>
-		</dl>
 		<dl>
 			<dt>Volume:</dt>
 			<dd id="volume"></dd>
@@ -74,5 +66,6 @@
 		</dl>
 	</div>
 	<div id="sound"></div>
+	<canvas id="spectrum"></canvas>
 </body>
 </html>

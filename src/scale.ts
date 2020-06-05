@@ -20,67 +20,58 @@ const avg = (arr: Uint8Array) => {
 
 const max = (arr: Uint8Array) => arr.reduce((a, b) =>  Math.max(a, b));
 
+
+interface LimitedSpectrum extends frequencyToScaleData.PitchName {
+  power: number,
+  cachedIndex: number,
+};
+
+export type AnalyzedAudioData = {
+  averageVolume: number,
+  lowerMaxFr: number,
+  lowerAvgFr: number,
+  upperMaxFr: number,
+  upperAvgFr: number,
+  limitedSpectrum: Array<LimitedSpectrum>
+};
+
 export class Analyze {
   private context: AudioContext;
   tracks: MediaStreamTrack[];
-  isPassFirstAuthorizationOfEnviroment: boolean;
+  isPasssUserAuthorization: boolean;
   isStopAnalyze: boolean;
-  private _currentScale: frequencyToScaleData.PitchName;
-  private _volume: number;
-  private _index: number;
-  private _lowerMaxFr: number;
-  private _lowerAvgFr: number;
-  private _upperMaxFr: number;
-  private _upperAvgFr: number;
-  private _limitedSpectrum = [...Array(frequencyToScale.length)].map((x)=> x = 0);
+  private _analyzedAudioData: AnalyzedAudioData;
+  private isLoopedOnece = false;
   constructor(
     audioContext: AudioContext
     ) {
     this.context = audioContext;
     this.tracks = [];
-    this.isPassFirstAuthorizationOfEnviroment = false;
+    this.isPasssUserAuthorization = false;
     this.isStopAnalyze = false;
-    this._currentScale = { pitch: frequencyToScale[0].pitch, Hz: frequencyToScale[0].Hz };
-    this._volume = 0;
-    this._index = 0;
-    this._lowerMaxFr = 0;
-    this._lowerAvgFr = 0;
-    this._upperMaxFr = 0;
-    this._upperAvgFr = 0;
+    this._analyzedAudioData = {
+      averageVolume: 0,
+      lowerMaxFr: 0,
+      lowerAvgFr: 0,
+      upperMaxFr: 0,
+      upperAvgFr: 0,
+      limitedSpectrum: this.initializeSpectrumArray()
+    }
   }
 
   // getter
-  get currentScale() {
-    return this._currentScale;
+  get analyzedAudioData() {
+    return this._analyzedAudioData;
   }
 
-  get limitedSpectrum() {
-    return this._limitedSpectrum;
-  }
+  private initializeSpectrumArray () {
+    const array = frequencyToScale.map(((x: LimitedSpectrum) => {
+      x.power = 0;
+      x.cachedIndex = 0;
+      return x;
+    }));
 
-  get volume() {
-    return this._volume;
-  }
-
-  get lowerMaxFr() {
-    return this._lowerMaxFr;
-  }
-
-  get lowerAvgFr() {
-    return this._lowerAvgFr;
-  }
-
-  get upperMaxFr() {
-    return this._upperMaxFr;
-  }
-
-  get upperAvgFr() {
-    return this._upperAvgFr;
-  }
-
-  get normalizedHz() {
-    const MIN = 0;
-    return (this._index - MIN) / ((frequencyToScale.length - 1) - MIN);
+    return array;
   }
 
   // initialize media devices
@@ -103,7 +94,7 @@ export class Analyze {
 
   // check user acknowledgment
   private authorization() {
-    if (!this.isPassFirstAuthorizationOfEnviroment) {
+    if (!this.isPasssUserAuthorization) {
       return;
     }
   }
@@ -134,10 +125,10 @@ export class Analyze {
     const upperMax = max(upperHalfArray);
     const upperAvg = avg(upperHalfArray);
 
-    this._lowerMaxFr = lowerMax / lowerHalfArray.length;
-    this._lowerAvgFr = lowerAvg / lowerHalfArray.length;
-    this._upperMaxFr = upperMax / upperHalfArray.length;
-    this._upperAvgFr = upperAvg / upperHalfArray.length;
+    this._analyzedAudioData.lowerMaxFr = lowerMax / lowerHalfArray.length;
+    this._analyzedAudioData.lowerAvgFr = lowerAvg / lowerHalfArray.length;
+    this._analyzedAudioData.upperMaxFr = upperMax / upperHalfArray.length;
+    this._analyzedAudioData.upperAvgFr = upperAvg / upperHalfArray.length;
   }
 
   // analyze scale at real time
@@ -149,75 +140,97 @@ export class Analyze {
       minVolume = DEFAULT_MIN_VOLUME;
     }
 
-    analyser.getFloatFrequencyData(bufferArray);
+    // analyser.getFloatFrequencyData(bufferArray);
 
     // analyze volume
     analyser.getByteFrequencyData(fourierVolumeArray);
     const average = this.getAverageVolume(fourierVolumeArray);
 
 
-    const getNormalization = (r: number) =>  (bufferArray[r] - analyser.maxDecibels) / dBrange * -1;
-
+    // analyze 88 scale
     let exRange = 0;
+    let exRange2 = 0;
 
-    for (let index = 0; index < fourierVolumeArray.byteLength / 2; index++) {
-      const current = index * this.context.sampleRate / analyser.fftSize;
-      if(exRange >= frequencyToScale.length - 1 ) {
-        exRange = 0;
-        break
-      }
-      if(frequencyToScale[exRange].Hz <= current && frequencyToScale[exRange + 1].Hz >= current) {
-        this._limitedSpectrum[exRange] = fourierVolumeArray[index];
-        exRange+= 1;
-      }
-    }
+    if(this.isLoopedOnece) {
 
+      for (let index = 0; this._analyzedAudioData.limitedSpectrum.length; index++) {
+        if(exRange2 >= this._analyzedAudioData.limitedSpectrum.length - 1 ) {
+          this._analyzedAudioData.limitedSpectrum[index].power = fourierVolumeArray[this._analyzedAudioData.limitedSpectrum[index].cachedIndex];
+          exRange2 = 0;
+          break
+        }
 
-    let extendedRange = 0;
-    for (let range = 0,
-            total = dBrange,
-            normalized;
-            range < bufferArray.length;
-            range++
-        )
-      normalized = getNormalization(range),
-      total > normalized && (total = normalized, extendedRange = range);
-
-    for (let index = 0; index < frequencyToScale.length; index++) {
-      const convertkHzToHz = extendedRange * currentkiloHz;
-      const currentHz = frequencyToScale[index].Hz;
-      const nextIndex = index + 1;
-      const nextHz = frequencyToScale[nextIndex].Hz;
-
-      // lowest pitch
-      if (convertkHzToHz <= frequencyToScale[0].Hz) {
-        extendedRange = 0;
-        break;
-      }
-      // highest pitch
-      if (convertkHzToHz >= frequencyToScale[frequencyToScale.length - 1].Hz) {
-        extendedRange = frequencyToScale.length - 1;
-        break;
+        this._analyzedAudioData.limitedSpectrum[index].power = fourierVolumeArray[this._analyzedAudioData.limitedSpectrum[index].cachedIndex];
+        exRange2+= 1;
       }
 
-      if (convertkHzToHz >= currentHz && nextHz >= convertkHzToHz) {
+    } else {
+      for (let index = 0; index < fourierVolumeArray.byteLength / 2; index++) {
+        const current = index * this.context.sampleRate / analyser.fftSize;
+        if(exRange >= this._analyzedAudioData.limitedSpectrum.length - 1 ) {
+          this._analyzedAudioData.limitedSpectrum[exRange].cachedIndex = index;
+          this._analyzedAudioData.limitedSpectrum[exRange].power = fourierVolumeArray[index];
+          exRange = 0;
 
-        extendedRange = Math.abs(convertkHzToHz - currentHz) > Math.abs(convertkHzToHz - nextHz)
-                      ? nextIndex
-                      : index;
+          this.isLoopedOnece = true;
 
-        break;
+          break
+        }
+        if(frequencyToScale[exRange].Hz <= current && frequencyToScale[exRange + 1].Hz >= current) {
+          this._analyzedAudioData.limitedSpectrum[exRange].cachedIndex = index;
+          this._analyzedAudioData.limitedSpectrum[exRange].power = fourierVolumeArray[index];
+          exRange+= 1;
+        }
       }
     }
+
+
+    // const getNormalization = (r: number) =>  (bufferArray[r] - analyser.maxDecibels) / dBrange * -1;
+    // let extendedRange = 0;
+    // for (let range = 0,
+    //         total = dBrange,
+    //         normalized;
+    //         range < bufferArray.length;
+    //         range++
+    //     )
+    //   normalized = getNormalization(range),
+    //   total > normalized && (total = normalized, extendedRange = range);
+
+    // for (let index = 0; index < frequencyToScale.length; index++) {
+    //   const convertkHzToHz = extendedRange * currentkiloHz;
+    //   const currentHz = frequencyToScale[index].Hz;
+    //   const nextIndex = index + 1;
+    //   const nextHz = frequencyToScale[nextIndex].Hz;
+
+    //   // lowest pitch
+    //   if (convertkHzToHz <= frequencyToScale[0].Hz) {
+    //     extendedRange = 0;
+    //     break;
+    //   }
+    //   // highest pitch
+    //   if (convertkHzToHz >= frequencyToScale[frequencyToScale.length - 1].Hz) {
+    //     extendedRange = frequencyToScale.length - 1;
+    //     break;
+    //   }
+
+    //   if (convertkHzToHz >= currentHz && nextHz >= convertkHzToHz) {
+
+    //     extendedRange = Math.abs(convertkHzToHz - currentHz) > Math.abs(convertkHzToHz - nextHz)
+    //                   ? nextIndex
+    //                   : index;
+
+    //     break;
+    //   }
+    // }
 
     const update = () => {
       // if(minVolume === undefined) {
       //   return;
       // }
       if(average > minVolume) {
-        this._index = extendedRange;
-        this._currentScale = frequencyToScale[extendedRange];
-        this._volume = average;
+        // this._index = extendedRange;
+        // this._currentScale = frequencyToScale[extendedRange];
+        this._analyzedAudioData.averageVolume = average;
       }
     }
 

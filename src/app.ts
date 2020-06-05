@@ -13,15 +13,34 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     const analyze = new Scale.Analyze(context);
 
-    await analyze.analyzeScaleFromAudioFile('./assets/bensound-summer.mp3', 0);
+    //await analyze.analyzeScaleFromAudioFile('./assets/bensound-summer.mp3', 0);
 
-    //await analyze.analyzeScaleFromMediaStream();
+    await analyze.analyzeScaleFromMediaStream();
+
+    const spectrumCanvas = document.getElementById('spectrum') as HTMLCanvasElement;
+    const cw = window.innerWidth;
+    const ch = window.innerHeight;
+    spectrumCanvas.width = cw;
+    spectrumCanvas.height = ch;
+    const ctx = spectrumCanvas.getContext('2d');
+    ctx.font = "9px serif";
+
+    const width = 8;
+    const last = width * analyze.analyzedAudioData.limitedSpectrum.length;
+
 
     const tick = () => {
-      //console.log(analyze.limitedSpectrum);
-      Gui.tick(analyze.currentScale, analyze.normalizedHz, analyze.volume, bpm, analyze.lowerMaxFr, analyze.lowerAvgFr, analyze.upperMaxFr, analyze.upperAvgFr);
-      Graphics.dynamicValuesChanger(analyze.currentScale, analyze.volume);
+      Gui.tick(analyze.analyzedAudioData, bpm);
+      Graphics.dynamicValuesChanger(analyze.analyzedAudioData);
       Graphics.animate();
+
+      ctx.clearRect(0,0,cw,ch)
+      for (let index = 0; index < analyze.analyzedAudioData.limitedSpectrum.length; index++) {
+        ctx.fillRect((cw / 2 - last) + width * 2 * index, 610, width / 2, - analyze.analyzedAudioData.limitedSpectrum[index].power);
+        const textWidth =  ctx.measureText(analyze.analyzedAudioData.limitedSpectrum[index].pitch).width;
+        ctx.fillText(analyze.analyzedAudioData.limitedSpectrum[index].pitch,  (cw / 2 - last) + width * 2 * index - textWidth / 4, 620)
+      }
+
       requestAnimationFrame(tick);
     }
 

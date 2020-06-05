@@ -17,6 +17,7 @@ export const create = () => {
     'G',
     'G#',
   ];
+
   const OCTAVE = BASE_PITCH_NAMES.length;
   const STEP = 3;
   const STEP_OF_NEXT_HZ = -OCTAVE + STEP;
@@ -63,7 +64,14 @@ export const create = () => {
       baseMultiplyNumber = STEP_OF_NEXT_HZ;
     }
 
-    list.pitch = `${BASE_PITCH_NAMES[indexOfPitchNames]}${baseOctave}`;
+    if(BASE_PITCH_NAMES[indexOfPitchNames].length === 2) {
+      const a = BASE_PITCH_NAMES[indexOfPitchNames].slice(0,1);
+      const b = BASE_PITCH_NAMES[indexOfPitchNames].slice(1,2);
+      list.pitch = `${a}${baseOctave}${b}`;
+    } else {
+      list.pitch = `${BASE_PITCH_NAMES[indexOfPitchNames]}${baseOctave}`;
+    }
+
     indexOfPitchNames++;
 
     const currentHz = caluculateHz(baseMultiplyNumber);

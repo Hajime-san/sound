@@ -1,4 +1,5 @@
 import { PitchName } from '../frequencyToScale';
+import { AnalyzedAudioData } from '../scale';
 
 import * as THREE from 'three';
 import { GPUComputationRenderer, Variable } from 'three/examples/jsm/misc/GPUComputationRenderer';
@@ -266,53 +267,53 @@ export function animate() {
   renderer.render( scene, camera );
 }
 
-export function dynamicValuesChanger(currentScale: PitchName, volume: number) {
+export function dynamicValuesChanger(data: AnalyzedAudioData) {
 
-  velocityUniforms.volume.value = volume;
+  velocityUniforms.volume.value = data.averageVolume;
 
-  if(currentScale.pitch.indexOf('C') !== -1) {
+  // if(currentScale.pitch.indexOf('C') !== -1) {
     particleUniforms.ambient.value = {
       r: 227,
       g: 33,
       b: 30
     }
-  } else if (currentScale.pitch.indexOf('D') !== -1) {
-    particleUniforms.ambient.value = {
-      r: 218,
-      g: 177,
-      b: 28
-    }
-  } else if (currentScale.pitch.indexOf('E') !== -1) {
-    particleUniforms.ambient.value = {
-      r: 62,
-      g: 169,
-      b: 53
-    }
-  } else if (currentScale.pitch.indexOf('F') !== -1) {
-    particleUniforms.ambient.value = {
-      r: 188,
-      g: 131,
-      b: 63
-    }
-  } else if (currentScale.pitch.indexOf('G') !== -1) {
-    particleUniforms.ambient.value = {
-      r: 2,
-      g: 175,
-      b: 205
-    }
-  } else if (currentScale.pitch.indexOf('A') !== -1) {
-    particleUniforms.ambient.value = {
-      r: 185,
-      g: 86,
-      b: 133
-    }
-  } else if (currentScale.pitch.indexOf('B') !== -1) {
-    particleUniforms.ambient.value = {
-      r: 218,
-      g: 162,
-      b: 175
-    }
-  }
+  // } else if (currentScale.pitch.indexOf('D') !== -1) {
+  //   particleUniforms.ambient.value = {
+  //     r: 218,
+  //     g: 177,
+  //     b: 28
+  //   }
+  // } else if (currentScale.pitch.indexOf('E') !== -1) {
+  //   particleUniforms.ambient.value = {
+  //     r: 62,
+  //     g: 169,
+  //     b: 53
+  //   }
+  // } else if (currentScale.pitch.indexOf('F') !== -1) {
+  //   particleUniforms.ambient.value = {
+  //     r: 188,
+  //     g: 131,
+  //     b: 63
+  //   }
+  // } else if (currentScale.pitch.indexOf('G') !== -1) {
+  //   particleUniforms.ambient.value = {
+  //     r: 2,
+  //     g: 175,
+  //     b: 205
+  //   }
+  // } else if (currentScale.pitch.indexOf('A') !== -1) {
+  //   particleUniforms.ambient.value = {
+  //     r: 185,
+  //     g: 86,
+  //     b: 133
+  //   }
+  // } else if (currentScale.pitch.indexOf('B') !== -1) {
+  //   particleUniforms.ambient.value = {
+  //     r: 218,
+  //     g: 162,
+  //     b: 175
+  //   }
+  // }
 
 }
 
