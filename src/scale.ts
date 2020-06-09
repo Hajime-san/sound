@@ -24,7 +24,7 @@ interface LimitedSpectrum extends Scale {
   cachedIndex: number,
 };
 
-export type AnalyzedAudioData = {
+export interface AnalyzedAudioData {
   averageVolume: number,
   lowerMaxFr: number,
   lowerAvgFr: number,
@@ -39,7 +39,7 @@ export class Analyze {
   isPasssUserAuthorization: boolean;
   isStopAnalyze: boolean;
   private _analyzedAudioData: AnalyzedAudioData;
-  private isLoopedOnece = false;
+  private LARGEST_FFT_SIZE = 32768;
   constructor(
     audioContext: AudioContext
     ) {
@@ -102,7 +102,7 @@ export class Analyze {
     let values = 0;
     let average: number;
 
-    const length = array.length;
+    const length = array.length / 2;
 
     // get all the frequency amplitudes
     for (let i = 0; i < length; i++) {
@@ -113,11 +113,11 @@ export class Analyze {
     return average;
   }
 
-  private getVariousVolumePeaks = (fourierVolumeArray: Uint8Array) => {
-    const lowerHalfArray = fourierVolumeArray.slice(0, (fourierVolumeArray.length / 2 ) - 1);
-    const upperHalfArray = fourierVolumeArray.slice((fourierVolumeArray.length / 2 ) - 1, fourierVolumeArray.length - 1);
+  private getVariousVolumePeaks = (frequencyData: Uint8Array) => {
+    const lowerHalfArray = frequencyData.slice(0, (frequencyData.length / 2 ) - 1);
+    const upperHalfArray = frequencyData.slice((frequencyData.length / 2 ) - 1, frequencyData.length - 1);
 
-    const overallAvg = avg(fourierVolumeArray);
+    const overallAvg = avg(frequencyData);
     const lowerMax = max(lowerHalfArray);
     const lowerAvg = avg(lowerHalfArray);
     const upperMax = max(upperHalfArray);
@@ -129,8 +129,35 @@ export class Analyze {
     this._analyzedAudioData.upperAvgFr = upperAvg / upperHalfArray.length;
   }
 
+  private getIndexOfNearestHzBasedOnChart = (analyserNode: AnalyserNode,frequencyData: Uint8Array) => {
+    let loopCounter = 0;
+
+    for (let index = 0; index < frequencyData.byteLength / 2; index++) {
+      const currentHz = index * this.context.sampleRate / analyserNode.fftSize;
+
+      if(loopCounter < this._analyzedAudioData.limitedSpectrum.length - 1 ) {
+
+        if(NoteFrequencyChartData[loopCounter].Hz <= currentHz && NoteFrequencyChartData[loopCounter + 1].Hz >= currentHz) {
+
+          this._analyzedAudioData.limitedSpectrum[loopCounter].cachedIndex = index;
+          this._analyzedAudioData.limitedSpectrum[loopCounter].power = frequencyData[index];
+
+          loopCounter+= 1;
+        }
+      } else {
+        if(NoteFrequencyChartData[loopCounter].Hz <= currentHz) {
+          this._analyzedAudioData.limitedSpectrum[loopCounter].cachedIndex = index;
+          this._analyzedAudioData.limitedSpectrum[loopCounter].power = frequencyData[index];
+
+          break
+        }
+
+      }
+    }
+  }
+
   // analyze scale at real time
-  private tickAnalyze(analyser: AnalyserNode, bufferArray: Float32Array, currentkiloHz: number, dBrange: number, fourierVolumeArray: Uint8Array, minVolume?: number) {
+  private tickAnalyze(analyser: AnalyserNode, frequencyData: Uint8Array, minVolume?: number) {
     // default min volume
     const DEFAULT_MIN_VOLUME = 10;
 
@@ -138,103 +165,37 @@ export class Analyze {
       minVolume = DEFAULT_MIN_VOLUME;
     }
 
-    // analyser.getFloatFrequencyData(bufferArray);
-
     // analyze volume
-    analyser.getByteFrequencyData(fourierVolumeArray);
-    const average = this.getAverageVolume(fourierVolumeArray);
+    analyser.getByteFrequencyData(frequencyData);
+    const average = this.getAverageVolume(frequencyData);
 
 
-    // analyze 88 scale
-    let exRange = 0;
-    let exRange2 = 0;
+    // analyze power
+    let loopCounter = 0;
 
-    if(this.isLoopedOnece) {
-
-      for (let index = 0; this._analyzedAudioData.limitedSpectrum.length; index++) {
-        if(exRange2 >= this._analyzedAudioData.limitedSpectrum.length - 1 ) {
-          this._analyzedAudioData.limitedSpectrum[index].power = fourierVolumeArray[this._analyzedAudioData.limitedSpectrum[index].cachedIndex];
-          exRange2 = 0;
-          break
-        }
-
-        this._analyzedAudioData.limitedSpectrum[index].power = fourierVolumeArray[this._analyzedAudioData.limitedSpectrum[index].cachedIndex];
-        exRange2+= 1;
+    for (let index = 0; this._analyzedAudioData.limitedSpectrum.length; index++) {
+      if(loopCounter >= this._analyzedAudioData.limitedSpectrum.length - 1 ) {
+        this._analyzedAudioData.limitedSpectrum[index].power = frequencyData[this._analyzedAudioData.limitedSpectrum[index].cachedIndex];
+        loopCounter = 0;
+        break
       }
 
-    } else {
-      for (let index = 0; index < fourierVolumeArray.byteLength / 2; index++) {
-        const current = index * this.context.sampleRate / analyser.fftSize;
-        if(exRange >= this._analyzedAudioData.limitedSpectrum.length - 1 ) {
-          this._analyzedAudioData.limitedSpectrum[exRange].cachedIndex = index;
-          this._analyzedAudioData.limitedSpectrum[exRange].power = fourierVolumeArray[index];
-          exRange = 0;
-
-          this.isLoopedOnece = true;
-
-          break
-        }
-        if(NoteFrequencyChartData[exRange].Hz <= current && NoteFrequencyChartData[exRange + 1].Hz >= current) {
-          this._analyzedAudioData.limitedSpectrum[exRange].cachedIndex = index;
-          this._analyzedAudioData.limitedSpectrum[exRange].power = fourierVolumeArray[index];
-          exRange+= 1;
-        }
-      }
+      this._analyzedAudioData.limitedSpectrum[index].power = frequencyData[this._analyzedAudioData.limitedSpectrum[index].cachedIndex];
+      loopCounter+= 1;
     }
-
-
-    // const getNormalization = (r: number) =>  (bufferArray[r] - analyser.maxDecibels) / dBrange * -1;
-    // let extendedRange = 0;
-    // for (let range = 0,
-    //         total = dBrange,
-    //         normalized;
-    //         range < bufferArray.length;
-    //         range++
-    //     )
-    //   normalized = getNormalization(range),
-    //   total > normalized && (total = normalized, extendedRange = range);
-
-    // for (let index = 0; index < NoteFrequencyChartData.length; index++) {
-    //   const convertkHzToHz = extendedRange * currentkiloHz;
-    //   const currentHz = NoteFrequencyChartData[index].Hz;
-    //   const nextIndex = index + 1;
-    //   const nextHz = NoteFrequencyChartData[nextIndex].Hz;
-
-    //   // lowest note
-    //   if (convertkHzToHz <= NoteFrequencyChartData[0].Hz) {
-    //     extendedRange = 0;
-    //     break;
-    //   }
-    //   // highest note
-    //   if (convertkHzToHz >= NoteFrequencyChartData[NoteFrequencyChartData.length - 1].Hz) {
-    //     extendedRange = NoteFrequencyChartData.length - 1;
-    //     break;
-    //   }
-
-    //   if (convertkHzToHz >= currentHz && nextHz >= convertkHzToHz) {
-
-    //     extendedRange = Math.abs(convertkHzToHz - currentHz) > Math.abs(convertkHzToHz - nextHz)
-    //                   ? nextIndex
-    //                   : index;
-
-    //     break;
-    //   }
-    // }
 
     const update = () => {
       // if(minVolume === undefined) {
       //   return;
       // }
       if(average > minVolume) {
-        // this._index = extendedRange;
-        // this._currentScale = NoteFrequencyChartData[extendedRange];
         this._analyzedAudioData.averageVolume = average;
       }
     }
 
     requestAnimationFrame(()=> {
-      this.tickAnalyze(analyser, bufferArray, currentkiloHz, dBrange, fourierVolumeArray, minVolume);
-      this.getVariousVolumePeaks(fourierVolumeArray);
+      this.tickAnalyze(analyser, frequencyData, minVolume);
+      this.getVariousVolumePeaks(frequencyData);
       update();
     });
   }
@@ -250,11 +211,11 @@ export class Analyze {
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
-    analyserNode.fftSize = 32768;
-    const currentkiloHz = this.context.sampleRate / analyserNode.fftSize;
-    const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
-    const bufferArray = new Float32Array(analyserNode.frequencyBinCount);
-    const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.fftSize = this.LARGEST_FFT_SIZE;
+    const frequencyData = new Uint8Array(analyserNode.frequencyBinCount);
+
+    // check what frequencyData's index is the nearest of the NoteFrequencyChart's hz.
+    this.getIndexOfNearestHzBasedOnChart(analyserNode, frequencyData);
 
     // connect analyzer to audio buffer
     source.connect(analyserNode);
@@ -262,7 +223,7 @@ export class Analyze {
     source.start(0);
 
     // start analyzing!!
-    this.tickAnalyze(analyserNode, bufferArray, currentkiloHz, dBrange, fourierVolumeArray, minVolume);
+    this.tickAnalyze(analyserNode, frequencyData, minVolume);
   }
 
   // sound from user's integrated media of device
@@ -282,16 +243,16 @@ export class Analyze {
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
-    analyserNode.fftSize = 32768;
-    const currentkiloHz = this.context.sampleRate / analyserNode.fftSize;
-    const dBrange = analyserNode.maxDecibels - analyserNode.minDecibels;
-    const bufferLength = new Float32Array(analyserNode.frequencyBinCount);
-    const fourierVolumeArray = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.fftSize = this.LARGEST_FFT_SIZE;
+    const frequencyData = new Uint8Array(analyserNode.frequencyBinCount);
+
+    // check what frequencyData's index is the nearest of the NoteFrequencyChart's hz.
+    this.getIndexOfNearestHzBasedOnChart(analyserNode, frequencyData);
 
     // connect analyzer to mediaStream buffer
     audioSourceNode.connect(analyserNode);
 
     // start analyzing!!
-    this.tickAnalyze(analyserNode, bufferLength, currentkiloHz, dBrange, fourierVolumeArray, minVolume);
+    this.tickAnalyze(analyserNode, frequencyData, minVolume);
   }
 }

@@ -1,6 +1,6 @@
 export interface Scale {
-  note: string,
-  Hz: number
+  readonly note: string,
+  readonly Hz: number
 }
 
 export interface NoteFrequencyChart extends Array<Scale>{}
