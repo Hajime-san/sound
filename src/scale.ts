@@ -40,6 +40,7 @@ export class Analyze {
   isStopAnalyze: boolean;
   private _analyzedAudioData: AnalyzedAudioData;
   private LARGEST_FFT_SIZE = 32768;
+  private source: AudioBufferSourceNode;
   constructor(
     audioContext: AudioContext
     ) {
@@ -206,8 +207,8 @@ export class Analyze {
     this.authorization();
 
     // create resource
-    const source = this.context.createBufferSource();
-    source.buffer = await Fn.prepareBuffer(this.context, path);
+    this.source = this.context.createBufferSource();
+    this.source.buffer = await Fn.prepareBuffer(this.context, path);
 
     // set analyzer
     const analyserNode = this.context.createAnalyser();
@@ -218,9 +219,8 @@ export class Analyze {
     this.getIndexOfNearestHzBasedOnChart(analyserNode, frequencyData);
 
     // connect analyzer to audio buffer
-    source.connect(analyserNode);
+    this.source.connect(analyserNode);
     analyserNode.connect(this.context.destination);
-    source.start(0);
 
     // start analyzing!!
     this.tickAnalyze(analyserNode, frequencyData, minVolume);
@@ -254,5 +254,9 @@ export class Analyze {
 
     // start analyzing!!
     this.tickAnalyze(analyserNode, frequencyData, minVolume);
+  }
+
+  public start() {
+    this.source.start(0);
   }
 }

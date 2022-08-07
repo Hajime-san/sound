@@ -121,8 +121,8 @@ export function initComputeRenderer() {
   gpuCompute.setVariableDependencies( anglesVariable, [ positionVariable, velocityVariable, anglesVariable ]  );
 
 
-  velocityUniforms = velocityVariable.material.uniforms;
-  anglesUniforms = anglesVariable.material.uniforms;
+  velocityUniforms = (velocityVariable.material as any).uniforms;
+  anglesUniforms = (anglesVariable.material as any).uniforms;
 
   velocityUniforms.volume = { value: 0.0 };
   velocityUniforms.ambient = {

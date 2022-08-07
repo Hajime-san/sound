@@ -29,5 +29,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       requestAnimationFrame(tick);
     }
 
-    tick();
+    const button = document.getElementById('play');
+
+    button.addEventListener('click', () => {
+      analyze.start();
+      tick();
+    });
 });

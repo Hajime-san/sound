@@ -16,6 +16,9 @@
 		width: 100vw;
 		height: 100vh;
 	}
+	.spectrum {
+		position: relative;
+	}
 	#spectrum {
 		width: 100vw;
 		height: 100vh;
@@ -36,9 +39,14 @@
 	.information dl:last-child {
 		margin-bottom: 0;
 	}
+	#play {
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		bottom: 20%;
+	}
 </style>
 <body>
-	<!-- <p>Sound Demo</p> -->
 	<div class="information">
 		<dl>
 			<dt>Volume:</dt>
@@ -66,6 +74,9 @@
 		</dl>
 	</div>
 	<div id="sound"></div>
-	<canvas id="spectrum"></canvas>
+	<div class="spectrum">
+		<canvas id="spectrum"></canvas>
+		<button id="play">play</button>
+	</div>
 </body>
 </html>
